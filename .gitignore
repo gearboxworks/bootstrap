@@ -1,0 +1,5 @@
+.*.swp
+dist/
+bin/
+d.sh
+results.txt
