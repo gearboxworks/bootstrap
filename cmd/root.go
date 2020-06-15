@@ -29,7 +29,6 @@ type TypeRuntime struct {
 
 	Debug         bool
 
-	//State         *ux.State
 	Error         error
 }
 type GoRuntime struct {
@@ -132,10 +131,6 @@ func NewRuntime(BinaryName string, BinaryVersion string, SourceRepo string, Bina
 }
 
 
-// 1. os.Executable == bootstrap
-// 2.
-
-// func (r *TypeRuntime) SetApp(BinaryName string, BinaryVersion string, SourceRepo string, BinaryRepo string) error {
 func SetApp(runtime *TypeRuntime, target *TypeRuntime) error {
 	for range onlyOnce {
 		if target.CmdVersion == "" {
@@ -157,28 +152,6 @@ func SetApp(runtime *TypeRuntime, target *TypeRuntime) error {
 		if runtime.CmdFile != defaults.BinaryName {
 			// We are running the binary either as a symlink or filename other than 'bootstrap'.
 		}
-
-		//fmt.Printf("CmdName:\t%s\t\t\t\t%s\n",
-		//	runtime.CmdName,		target.CmdName,
-		//)
-		//fmt.Printf("CmdVersion:\t%s\t\t\t\t\t%s\n",
-		//	runtime.CmdVersion,		target.CmdVersion,
-		//)
-		//fmt.Printf("CmdBinaryRepo:\t%s\t%s\n",
-		//	runtime.CmdBinaryRepo,	target.CmdBinaryRepo,
-		//)
-		//fmt.Printf("CmdSourceRepo:\t%s\t%s\n",
-		//	runtime.CmdSourceRepo,	target.CmdSourceRepo,
-		//)
-		//fmt.Printf("Cmd:\t\t%s\t%s\n",
-		//	runtime.Cmd,			target.Cmd,
-		//)
-		//fmt.Printf("CmdDir:\t\t%s\t\t%s\n",
-		//	runtime.CmdDir,			target.CmdDir,
-		//)
-		//fmt.Printf("CmdFile:\t%s  \t\t\t\t%s\n",
-		//	runtime.CmdFile,		target.CmdFile,
-		//)
 	}
 
 	return target.Error
@@ -189,10 +162,6 @@ func CreateDummyBinary(runtimeBin string, targetBin string) error {
 	var err error
 
 	for range onlyOnce {
-		//if runtimeBin == targetBin {
-		//	break
-		//}
-
 		var link string
 
 		link, err = os.Readlink(targetBin)
@@ -207,11 +176,9 @@ func CreateDummyBinary(runtimeBin string, targetBin string) error {
 				err = CopyFile(runtimeBin, targetBin)
 			}
 
-			//err = nil
 			break
 		}
 
-		//var fi os.FileInfo
 		_, err = os.Stat(targetBin)
 		if os.IsNotExist(err) {
 			if link != "" {
@@ -302,55 +269,6 @@ func CompareBinary(runtimeBin string, newBin string) error {
 
 	return err
 }
-
-
-func (r *TypeRuntime) RemoveDummyBinary() error {
-	//for range onlyOnce {
-	//	_, r.Error = os.Stat(r.Runtime)
-	//	if os.IsNotExist(r.Error) {
-	//		var input []byte
-	//		input, r.Error = ioutil.ReadFile(originalBin)
-	//		if r.Error != nil {
-	//			break
-	//		}
-	//
-	//		r.Error = ioutil.WriteFile(r.Runtime, input, 0755)
-	//		if r.Error != nil {
-	//			fmt.Println("Error creating", r.Runtime)
-	//			break
-	//		}
-	//	}
-	//}
-
-	return r.Error
-}
-
-
-//func copyBinary(src, dst string) (int64, error) {
-//	sourceFileStat, err := os.Stat(src)
-//	if err != nil {
-//		return 0, err
-//	}
-//
-//	if !sourceFileStat.Mode().IsRegular() {
-//		return 0, fmt.Errorf("%s is not a regular file", src)
-//	}
-//
-//	source, err := os.Open(src)
-//	if err != nil {
-//		return 0, err
-//	}
-//	defer source.Close()
-//
-//	destination, err := os.Create(dst)
-//	if err != nil {
-//		return 0, err
-//	}
-//
-//	defer destination.Close()
-//	nBytes, err := io.Copy(destination, source)
-//	return nBytes, err
-//}
 
 
 var rootCmd = &cobra.Command{
