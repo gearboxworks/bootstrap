@@ -31,7 +31,7 @@ Where [command] is one of:
 
 ## Examples
 
-Rename or symlink the bootstrap binary and automatically fetch the correct binary from repo.
+Rename or symlink the bootstrap binary and automatically fetch and replace the symlink with the binary from repo.
 
 ```
 ln -s bootstrap launch
