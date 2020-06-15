@@ -29,3 +29,19 @@ Where [command] is one of:
 	update	- version - Update version of executable.
 ```
 
+## Examples
+
+Rename or symlink the bootstrap binary and automatically fetch the correct binary from repo.
+
+```
+ln -s bootstrap launch
+./launch version update
+```
+
+
+Download latest buildtools binary from repo.
+
+```
+./bootstrap --bin buildtools version update
+```
+
