@@ -1,6 +1,9 @@
 package cmd
 
-import "github.com/blang/semver"
+import (
+	"github.com/blang/semver"
+	"strings"
+)
 
 
 type StringValue string
@@ -9,16 +12,43 @@ type FlagValue bool
 
 
 func (v *VersionValue) String() string {
-	return (semver.Version)(*v).String()
+	if v == nil {
+		return ""
+	}
+	vers := (semver.Version)(*v).String()
+	return dropVprefix(vers)
 }
 func toVersionValue(version string) *VersionValue {
-	v := VersionValue(semver.MustParse(version))
-	return &v
-}
-func toSemVer(version string) semver.Version {
-	return semver.MustParse(version)
+	if version == LatestVersion {
+		return nil
+	}
+	if version == "" {
+		return nil
+	}
+	version = dropVprefix(version)
+	v, err := semver.Parse(version)
+	if err != nil {
+		return nil
+	}
+	ret := VersionValue(v)
+	return &ret
 }
 func toStringValue(s string) *StringValue {
+	v := StringValue(s)
+	return &v
+}
+func toOwnerValue(s string) *StringValue {
+	s = stripUrlPrefix(s)
+	if strings.Contains(s, "/") {
+		sa := strings.Split(s, "/")
+		switch {
+			case len(sa) == 0:
+				// Nada
+			default:
+				s = sa[0]
+		}
+
+	}
 	v := StringValue(s)
 	return &v
 }
@@ -35,6 +65,7 @@ func (v *VersionValue) IsValid() bool {
 	var ok bool
 	for range onlyOnce {
 		if v == nil {
+			ok = true	// Assume "latest"
 			break
 		}
 
@@ -51,6 +82,9 @@ func (v *VersionValue) IsNotValid() bool {
 	return !v.IsValid()
 }
 func (v *VersionValue) IsLatest() bool {
+	if v == nil {
+		return true
+	}
 	return (semver.Version)(*v).String() == LatestVersion
 }
 

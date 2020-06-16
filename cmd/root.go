@@ -1,52 +1,22 @@
 package cmd
 
 import (
-	"errors"
-	"fmt"
 	"github.com/gearboxworks/bootstrap/defaults"
-	"github.com/kardianos/osext"
 	"github.com/newclarity/scribeHelpers/ux"
 	"github.com/spf13/cobra"
-	"io/ioutil"
-	"os"
-	"path"
-	"path/filepath"
-	"runtime"
 	"strings"
 )
 
 
-type TypeRuntime struct {
-	CmdName       string    `json:"cmd_name" mapstructure:"cmd_name"`
-	CmdVersion    string    `json:"cmd_version" mapstructure:"cmd_version"`
-	CmdSourceRepo string    `json:"cmd_source_repo" mapstructure:"cmd_source_repo"`
-	CmdBinaryRepo string    `json:"cmd_binary_repo" mapstructure:"cmd_binary_repo"`
-	Cmd           string    `json:"cmd" mapstructure:"cmd"`
-	CmdDir        string    `json:"cmd_dir" mapstructure:"cmd_dir"`
-	CmdFile       string    `json:"cmd_file" mapstructure:"cmd_file"`
-
-	GoRuntime     GoRuntime `json:"go_runtime" mapstructure:"go_runtime"`
-
-	Debug         bool
-
-	Error         error
-}
-type GoRuntime struct {
-	Os string
-	Arch string
-	Root string
-	Version string
-	Compiler string
-	NumCpus int
-}
-
+const onlyOnce = "1"
+//var onlyTwice = []string{"", ""}
 var Runtime TypeRuntime
 var Target TypeRuntime
 
 
 func init() {
 	Runtime = NewRuntime(defaults.BinaryName, defaults.BinaryVersion, defaults.SourceRepo, defaults.BinaryRepo, false)
-	Target = NewRuntime("", "", "", "", false)
+	Target = NewRuntime("", "", defaults.SourceRepoPrefix, defaults.BinaryRepoPrefix, false)
 
 	//rootCmd.PersistentFlags().StringVarP(&Runtime.Json.Filename, loadTools.FlagJsonFile, "j", loadTools.DefaultJsonFile, ux.SprintfBlue("Alternative JSON file."))
 	//rootCmd.PersistentFlags().StringVarP(&Runtime.Template.Filename, loadTools.FlagTemplateFile, "t", loadTools.DefaultTemplateFile, ux.SprintfBlue("Alternative template file."))
@@ -61,8 +31,14 @@ func init() {
 	//
 	//rootCmd.PersistentFlags().BoolVarP(&Runtime.Debug, loadTools.FlagDebug ,"d", false, ux.SprintfBlue("DEBUG mode."))
 
-	rootCmd.PersistentFlags().StringVarP(&Target.CmdName, "bin" ,"b", Target.CmdName, ux.SprintfBlue("Name of binary to download."))
-	rootCmd.PersistentFlags().StringVarP(&Target.CmdBinaryRepo, "repo" ,"r", Target.CmdBinaryRepo, ux.SprintfBlue("Url of binary repo to download."))
+	rootCmd.PersistentFlags().StringVarP(&Target.CmdName, "bin" ,"b", Target.CmdName, ux.SprintfBlue("Name of target binary to download."))
+	_ = rootCmd.PersistentFlags().MarkHidden("bin")
+	rootCmd.PersistentFlags().StringVarP(&Target.CmdBinaryRepo, "repo" ,"r", Target.CmdBinaryRepo, ux.SprintfBlue("Url of target binary repo to download."))
+	_ = rootCmd.PersistentFlags().MarkHidden("repo")
+	rootCmd.PersistentFlags().StringVarP(&Target.CmdVersion, "ver" ,"", Target.CmdVersion, ux.SprintfBlue("Version of target binary to download."))
+	_ = rootCmd.PersistentFlags().MarkHidden("ver")
+	rootCmd.PersistentFlags().BoolVarP(&Target.AutoExec, "auto" ,"", false, ux.SprintfBlue("Auto-update when symlinked."))
+	_ = rootCmd.PersistentFlags().MarkHidden("ver")
 
 	//rootCmd.PersistentFlags().BoolVarP(&Runtime.HelpAll, loadTools.FlagHelpAll, "", false, ux.SprintfBlue("Show all help."))
 	//rootCmd.PersistentFlags().BoolVarP(&Runtime.HelpVariables, loadTools.FlagHelpVariables, "", false, ux.SprintfBlue("Help on template variables."))
@@ -73,208 +49,11 @@ func init() {
 }
 
 
-func NewRuntime(BinaryName string, BinaryVersion string, SourceRepo string, BinaryRepo string, debugFlag bool) TypeRuntime {
-	r := TypeRuntime {
-		//RunAsBootStrap: false,
-
-		CmdName:       BinaryName,
-		CmdVersion:    BinaryVersion,
-		CmdSourceRepo: SourceRepo,
-		CmdBinaryRepo: BinaryRepo,
-		Cmd:           "",
-		CmdDir:        "",
-		CmdFile:       "",
-
-		GoRuntime: GoRuntime{
-			Os:       runtime.GOOS,
-			Arch:     runtime.GOARCH,
-			Root:     runtime.GOROOT(),
-			Version:  runtime.Version(),
-			Compiler: runtime.Compiler,
-			NumCpus:  runtime.NumCPU(),
-		},
-
-		Debug: debugFlag,
-		Error: nil,
-	}
-
-	for range onlyOnce {
-		exe, err := osext.Executable()
-		if err != nil{
-			r.Error = err
-			break
-		}
-		r.Cmd = exe
-		r.CmdDir = path.Dir(exe)
-		r.CmdFile = path.Base(exe)
-		r.Debug = debugFlag
-
-		if r.CmdName == "" {
-			r.CmdName = r.CmdFile
-		}
-
-		if r.CmdSourceRepo == "" {
-			r.CmdSourceRepo = "github.com/gearboxworks/" + r.CmdName
-		}
-
-		if r.CmdBinaryRepo == "" {
-			r.CmdBinaryRepo = "github.com/gearboxworks/" + r.CmdName
-		}
-
-		if r.CmdFile == defaults.BinaryName {
-			//r.RunAsBootStrap = true
-			break
-		}
-	}
-
-	return r
-}
-
-
-func SetApp(runtime *TypeRuntime, target *TypeRuntime) error {
-	for range onlyOnce {
-		if target.CmdVersion == "" {
-			target.CmdVersion = runtime.CmdVersion
-		}
-
-		if target.CmdSourceRepo == runtime.CmdSourceRepo {
-			target.CmdSourceRepo = "github.com/gearboxworks/" + target.CmdName
-		}
-
-		if target.CmdBinaryRepo == runtime.CmdBinaryRepo {
-			target.CmdBinaryRepo = "github.com/gearboxworks/" + target.CmdName
-		}
-
-		if target.Cmd == runtime.Cmd {
-			target.Cmd = filepath.Join(filepath.Dir(target.Cmd), target.CmdName)
-		}
-
-		if runtime.CmdFile != defaults.BinaryName {
-			// We are running the binary either as a symlink or filename other than 'bootstrap'.
-		}
-	}
-
-	return target.Error
-}
-
-
-func CreateDummyBinary(runtimeBin string, targetBin string) error {
-	var err error
-
-	for range onlyOnce {
-		var link string
-
-		link, err = os.Readlink(targetBin)
-		if link == "" {
-			if targetBin == runtimeBin {
-				err = nil
-				break
-			}
-			_, err = os.Stat(targetBin)
-			if os.IsNotExist(err) {
-				// File doesn't exist - need to create it.
-				err = CopyFile(runtimeBin, targetBin)
-			}
-
-			break
-		}
-
-		_, err = os.Stat(targetBin)
-		if os.IsNotExist(err) {
-			if link != "" {
-				// File is a dud - no action.
-				err = errors.New(fmt.Sprintf("file '%s' is a symlink pointing to non-existant file '%s'", targetBin, link))
-				break
-			}
-
-			// File doesn't exist - need to create it.
-			err = CopyFile(runtimeBin, targetBin)
-			break
-		}
-
-		if link != defaults.BinaryName {
-			err = errors.New("symlink not pointing to bootstrap")
-			break
-		}
-
-		runtimeBin = filepath.Join(filepath.Dir(targetBin), link)
-		ux.PrintflnOk("Removing symlink %s (%s)", targetBin, link)
-		err = os.Remove(targetBin)
-		if err != nil {
-			break
-		}
-
-		err = CopyFile(runtimeBin, targetBin)
-	}
-
-	return err
-}
-
-
-func CopyFile(runtimeBin string, targetBin string) error {
-	var err error
-
-	for range onlyOnce {
-		var input []byte
-		input, err = ioutil.ReadFile(runtimeBin)
-		if err != nil {
-			break
-		}
-
-		err = ioutil.WriteFile(targetBin, input, 0755)
-		if err != nil {
-			fmt.Println("Error creating", targetBin)
-			break
-		}
-	}
-
-	return err
-}
-
-
-func CompareBinary(runtimeBin string, newBin string) error {
-	var err error
-
-	for range onlyOnce {
-		var srcBin []byte
-		srcBin, err = ioutil.ReadFile(runtimeBin)
-		if err != nil {
-			break
-		}
-		if srcBin == nil {
-			break
-		}
-
-		var targetBin []byte
-		targetBin, err = ioutil.ReadFile(newBin)
-		if err != nil {
-			break
-		}
-		if targetBin == nil {
-			break
-		}
-
-		if len(srcBin) != len(targetBin) {
-			break
-		}
-
-		err = errors.New("binary files differ")
-		for i := range srcBin {
-			if srcBin[i] != targetBin[i] {
-				err = nil
-				break
-			}
-		}
-	}
-
-	return err
-}
-
-
 var rootCmd = &cobra.Command{
 	Use:   defaults.BinaryName,
 	Short: "Bootstrap is the automatic app downloader.",
 	Long: "Bootstrap is the automatic app downloader.",
+	SilenceErrors: true,
 	Run: gbRootFunc,
 }
 func gbRootFunc(cmd *cobra.Command, args []string) {
@@ -282,7 +61,6 @@ func gbRootFunc(cmd *cobra.Command, args []string) {
 		var ok bool
 		fl := cmd.Flags()
 
-		// ////////////////////////////////
 		// Show version.
 		ok, _ = fl.GetBool(FlagVersion)
 		if ok {
@@ -290,9 +68,22 @@ func gbRootFunc(cmd *cobra.Command, args []string) {
 			break
 		}
 
+		if Runtime.IsSymLinked {
+			ux.PrintflnWarning("This binary will be auto-updated from the '%s' repo...", Target.CmdBinaryRepo)
+			// Assume a 'version update'
+			Runtime.Error = Target.SetApp(&Runtime, args...)
+			if Runtime.Error != nil {
+				return
+			}
+			Runtime.AutoExec = true
+			Target.AutoExec = true
+			Runtime.Error = VersionUpdate()
+			break
+		}
+
 		// Show help if no commands specified.
 		if len(args) == 0 {
-			PrintHelp(cmd)
+			PrintHelp()
 			Runtime.Error = cmd.Help()
 			break
 		}
@@ -305,18 +96,158 @@ func Execute() error {
 		SetHelp(rootCmd)
 
 		err := rootCmd.Execute()
-
-		if err != nil {
-			if strings.HasPrefix(err.Error(), "unknown command") {
-				PrintHelp(rootCmd)
-				err = nil
-			}
-
-			_ = rootCmd.Help()
-			Runtime.Error = err
+		if err == nil {
 			break
 		}
+
+		if !strings.HasPrefix(err.Error(), "unknown command") {
+			//PrintHelp()
+			//Runtime.Error = rootCmd.Help()
+			break
+		}
+
+		gbRootFunc(rootCmd, []string{})
+
+		//// Assume a 'version update'
+		//Runtime.AutoExec = true
+		//Target.AutoExec = true
+		//
+		//Runtime.Error = Target.SetApp(&Runtime)
+		//if Runtime.Error == nil {
+		//	Runtime.Error = VersionUpdate()
+		//}
+		//Runtime.Error = nil
+		//break
 	}
 
 	return Runtime.Error
+}
+
+
+func _GetUsage(c *cobra.Command) string {
+	var str string
+
+	if c.Parent() == nil {
+		str += ux.SprintfCyan("%s ", c.Name())
+	} else {
+		str += ux.SprintfCyan("%s ", c.Parent().Name())
+		str += ux.SprintfGreen("%s ", c.Use)
+	}
+
+	if c.HasAvailableSubCommands() {
+		str += ux.SprintfGreen("[command] ")
+		str += ux.SprintfCyan("<args> ")
+	}
+
+	return str
+}
+
+
+func _GetVersion(c *cobra.Command) string {
+	var str string
+
+	if c.Parent() == nil {
+		str = ux.SprintfBlue("%s ", defaults.BinaryName)
+		str += ux.SprintfCyan("v%s", defaults.BinaryVersion)
+	}
+
+	return str
+}
+
+
+func PrintHelp() {
+	ux.PrintfCyan("bootstrap")
+	ux.PrintflnBlue(" is intended to automatically download the correct binary from a GitHub repository.\n")
+
+	if Runtime.CmdFile == defaults.BinaryName {
+
+	} else {
+		ux.PrintflnBlue("The '%s' executable is running this bootstrap code.", Runtime.CmdName)
+
+		ux.PrintflnBlue("To be able to use the real '%s' executable, replace this bootstrap binary using this command:", Runtime.CmdName)
+		ux.PrintflnCyan("%s version update", Runtime.CmdName)
+		ux.PrintflnBlue("\nThis will update and replace the current '%s' file with the correct executable.\n\n", Runtime.CmdName)
+	}
+}
+
+
+func SetHelp(c *cobra.Command) {
+	var tmplHelp string
+	var tmplUsage string
+
+	cobra.AddTemplateFunc("GetUsage", _GetUsage)
+	cobra.AddTemplateFunc("GetVersion", _GetVersion)
+	cobra.AddTemplateFunc("VersionExamples", VersionExamples)
+
+	cobra.AddTemplateFunc("SprintfBlue", ux.SprintfBlue)
+	cobra.AddTemplateFunc("SprintfCyan", ux.SprintfCyan)
+	cobra.AddTemplateFunc("SprintfGreen", ux.SprintfGreen)
+	cobra.AddTemplateFunc("SprintfMagenta", ux.SprintfMagenta)
+	cobra.AddTemplateFunc("SprintfRed", ux.SprintfRed)
+	cobra.AddTemplateFunc("SprintfWhite", ux.SprintfWhite)
+	cobra.AddTemplateFunc("SprintfYellow", ux.SprintfYellow)
+
+	tmplUsage += `
+{{ SprintfBlue "Usage: " }}
+	{{ GetUsage . }}
+
+{{- if gt (len .Aliases) 0 }}
+{{ SprintfBlue "\nAliases:" }} {{ .NameAndAliases }}
+{{- end }}
+
+{{- if .HasExample }}
+{{ SprintfBlue "\nExamples:" }}
+	{{ .Example }}
+{{- end }}
+
+{{- if .HasAvailableSubCommands }}
+{{ SprintfBlue "\nWhere " }}{{ SprintfGreen "[command]" }}{{ SprintfBlue " is one of:" }}
+{{- range .Commands }}
+{{- if (or .IsAvailableCommand (eq .Name "help")) }}
+	{{ rpad (SprintfGreen .Name) .NamePadding}}	- {{ .Short }}{{ end }}
+{{- end }}
+{{- end }}
+
+{{- if .HasAvailableLocalFlags }}
+{{ SprintfBlue "\nFlags:" }}
+{{ .LocalFlags.FlagUsages | trimTrailingWhitespaces }}
+{{- end }}
+
+{{- if .HasAvailableInheritedFlags }}
+{{ SprintfBlue "\nGlobal Flags:" }}
+{{ .InheritedFlags.FlagUsages | trimTrailingWhitespaces }}
+{{- end }}
+
+{{- if .HasHelpSubCommands }}
+{{- SprintfBlue "\nAdditional help topics:" }}
+{{- range .Commands }}
+{{- if .IsAdditionalHelpTopicCommand }}
+	{{ rpad (SprintfGreen .CommandPath) .CommandPathPadding }} {{ .Short }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- if .HasAvailableSubCommands }}
+{{ SprintfBlue "\nUse" }} {{ SprintfCyan .CommandPath }} {{ SprintfCyan "help" }} {{ SprintfGreen "[command]" }} {{ SprintfBlue "for more information about a command." }}
+{{- end }}
+`
+
+	tmplHelp = `{{ GetVersion . }}
+
+{{ SprintfBlue "Commmand:" }} {{ SprintfCyan .Use }}
+
+{{ SprintfBlue "Description:" }} 
+	{{ with (or .Long .Short) }}
+{{- . | trimTrailingWhitespaces }}
+{{- end }}
+
+{{- if or .Runnable .HasSubCommands }}
+{{ .UsageString }}
+{{- end }}
+`
+
+	//c.SetHelpCommand(c)
+	//c.SetHelpFunc(PrintHelp)
+	c.SetHelpTemplate(tmplHelp)
+	c.SetUsageTemplate(tmplUsage)
 }

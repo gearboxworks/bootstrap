@@ -1,6 +1,6 @@
 package cmd
 
-
+//noinspection ALL
 const (
 	CmdSelfUpdate		= "selfupdate"
 	CmdVersion 			= "version"
@@ -9,14 +9,15 @@ const (
 	CmdVersionLatest	= "latest"
 	CmdVersionCheck		= "check"
 	CmdVersionUpdate	= "update"
+	CmdVersionExamples	= "examples"
 
 	FlagVersion 		= "version"
 )
 
 
 const (
-	errorNoRepo = "repo is not defined - selfupdate disabled"
-	errorNoVersion = "no versions in repo - selfupdate disabled"
+	errorNoRepo = "repo is not defined"
+	errorNoVersion = "specified version '%s' not found in repo"
 	LatestVersion = "latest"
 )
 

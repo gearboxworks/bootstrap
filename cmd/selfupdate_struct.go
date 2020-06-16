@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"github.com/newclarity/scribeHelpers/ux"
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
-	"path/filepath"
 	"runtime"
-	"strings"
 )
 
 
@@ -24,6 +22,7 @@ type SelfUpdateArgs struct {
 }
 
 type TypeSelfUpdate struct {
+	owner       *StringValue
 	name       *StringValue
 	version    *VersionValue
 	sourceRepo *StringValue
@@ -32,8 +31,6 @@ type TypeSelfUpdate struct {
 
 	config     *selfupdate.Config
 	ref        *selfupdate.Updater
-
-	useRepo    string
 
 	runtime    *TypeRuntime
 	Error      error
@@ -52,8 +49,9 @@ func New(rt *TypeRuntime) *TypeSelfUpdate {
 	//rt = rt.EnsureNotNil()
 
 	te := TypeSelfUpdate{
+		owner:      toOwnerValue(rt.CmdSourceRepo),
 		name:       toStringValue(rt.CmdName),
-		version:    toVersionValue(rt.CmdVersion),
+		version:    toVersionValue(rt.WantVersion),
 		sourceRepo: toStringValue(stripUrlPrefix(rt.CmdSourceRepo)),
 		binaryRepo: toStringValue(stripUrlPrefix(rt.CmdBinaryRepo)),
 		logging:    toBoolValue(rt.Debug),
@@ -66,20 +64,16 @@ func New(rt *TypeRuntime) *TypeSelfUpdate {
 			Filters:             []string{},
 		},
 
-		useRepo:    "",
-
 		runtime: rt,
 		Error:   nil,
-		//State:   ux.NewState(rt.CmdName, rt.Debug),
 	}
-	//te.State.SetPackage("")
-	//te.State.SetFunctionCaller()
+
 
 	// Workaround for selfupdate not being flexible enough to support variable asset names
 	// Should enable a template similar to GoReleaser.
 	// EG: {{ .ProjectName }}-{{ .Os }}_{{ .Arch }}
 	//var asset string
-	//asset, te.State = toolGhr.GetAsset(rt.CmdBinaryRepo, "latest")
+	//asset, te.State = toolGhr.GetAsset(rt.CmdBinaryRepo, LatestVersion)
 	//te.config.Filters = append(te.config.Filters, asset)
 
 	// Ignore the above and just make sure all filenames are lowercase.
@@ -121,16 +115,12 @@ func (su *TypeSelfUpdate) IsValid() error {
 			break
 		}
 
-		// Refer to binary repo definition first.
 		if su.binaryRepo.IsValid() {
-			su.useRepo = su.binaryRepo.String()
 			su.Error = nil
 			break
 		}
 
-		// If binary repo is not set, use source repo.
 		if su.sourceRepo.IsValid() {
-			su.useRepo = su.sourceRepo.String()
 			su.Error = nil
 			break
 		}
@@ -160,30 +150,25 @@ func (su *TypeSelfUpdate) getRepo() string {
 }
 
 
-func (su *TypeSelfUpdate) Update() error {
+func (su *TypeSelfUpdate) UpdateTo() error {
 	for range onlyOnce {
 		su.Error = su.IsValid()
 		if su.Error != nil {
 			break
 		}
 
-		ux.PrintflnBlue("Checking '%s' for version greater than v%s", su.useRepo, su.version.String())
-		previous := su.version.ToSemVer()
-		// up.UpdateCommand(cmdPath, current, slug)
-		//latest, err := su.ref.UpdateSelf(previous, su.useRepo)
-		latest, err := su.ref.UpdateCommand(filepath.Join(su.runtime.CmdDir, su.runtime.CmdName), previous, su.useRepo)
-		if err != nil {
-			su.Error = err
+		wantVersion := su.version.ToSemVer()
+		newRelease := su.GetVersion(su.version)
+		if newRelease == nil {
+			ux.PrintflnError("Version v%s doesn't exist for '%s'", su.version.String(), su.name.String())
 			break
 		}
-
-		if previous.Equals(latest.Version) {
-			ux.PrintflnOk("%s is up to date: v%s", su.name.String(), su.version.String())
-		} else {
-			ux.PrintflnOk("%s updated to v%s", su.name.String(), latest.Version)
-			if latest.ReleaseNotes != "" {
-				ux.PrintflnOk("%s %s Release Notes:\n%s", su.name.String(), latest.Version, latest.ReleaseNotes)
-			}
+		su.Error = su.ref.UpdateTo(newRelease, su.runtime.Cmd)
+		if su.Error != nil {
+			break
+		}
+		if wantVersion.Equals(newRelease.Version) {
+			ux.PrintflnOk("%s updated to v%s", su.name.String(), su.version.String())
 		}
 	}
 
@@ -202,50 +187,79 @@ func (su *TypeSelfUpdate) GetVersion(version *VersionValue) *selfupdate.Release 
 
 		var ok bool
 		var err error
-
 		switch {
-		case version.IsNotValid():
-			fallthrough
-		case version.IsLatest():
-			release, ok, err = su.ref.DetectLatest(su.useRepo)
+			case version.IsNotValid():
+				fallthrough
+			case version.IsLatest():
+				release, ok, err = su.ref.DetectLatest(su.binaryRepo.String())
 
-		default:
-			v := version.String()
-			if !strings.HasPrefix(v, "v") {
-				v = "v" + v
-			}
-			release, ok, err = su.ref.DetectVersion(su.useRepo, v)
+			default:
+				v := addVprefix(version.String())
+				release, ok, err = su.ref.DetectVersion(su.binaryRepo.String(), v)
 		}
 
 		if !ok {
-			su.Error = errors.New(errorNoVersion)
+			su.Error = errors.New(fmt.Sprintf(errorNoVersion, version.String()))
 			break
 		}
 		if err != nil {
-			su.Error = errors.New(fmt.Sprintf("%s - %s", errorNoVersion, err))
+			su.Error = errors.New(fmt.Sprintf("%s - %s", fmt.Sprintf(errorNoVersion, version.String()), err))
 			break
 		}
 
-		//su.State.SetOutput(release)
+		su.version = toVersionValue(release.Name)
 	}
 
 	return release
 }
 
 
-func (su *TypeSelfUpdate) PrintVersion(version *VersionValue) error {
+func (su *TypeSelfUpdate) PrintVersion(version string) error {
 	for range onlyOnce {
 		su.Error = su.IsValid()
 		if su.Error != nil {
 			break
 		}
 
-		release := su.GetVersion(version)
+		var release *selfupdate.Release
+		switch version {
+			case LatestVersion:
+				fallthrough
+			case "":
+				release = su.GetVersion(nil)
+
+			default:
+				release = su.GetVersion(toVersionValue(version))
+		}
 		if su.Error != nil {
 			break
 		}
 
-		fmt.Printf(printVersion(release))
+		fmt.Print(printVersion(release))
+	}
+
+	return su.Error
+}
+
+
+func (su *TypeSelfUpdate) PrintVersionSummary(version string) error {
+	for range onlyOnce {
+		su.Error = su.IsValid()
+		if su.Error != nil {
+			break
+		}
+
+		var release *selfupdate.Release
+		if version == LatestVersion {
+			release = su.GetVersion(nil)
+		} else {
+			release = su.GetVersion(toVersionValue(version))
+		}
+		if su.Error != nil {
+			break
+		}
+
+		fmt.Print(printVersionSummary(release))
 	}
 
 	return su.Error
@@ -259,57 +273,60 @@ func (su *TypeSelfUpdate) IsUpdated() error {
 			break
 		}
 
-		latest := su.GetVersion(nil)
-		if su.Error != nil {
+		newRelease := su.GetVersion(su.version)
+		if newRelease == nil {
 			break
 		}
 
-		current := su.GetVersion(su.version)
+		currentRelease := su.GetVersion(toVersionValue(su.runtime.CmdVersion))
 
-		if current == nil {
-			ux.PrintflnWarning("%s can be updated to v%s.",
+		if currentRelease == nil {
+			ux.PrintflnOk("%s can be updated to v%s.",
 				su.name.String(),
-				latest.Version.String())
-			ux.PrintflnWarning("Current version info unknown.")
-			ux.PrintflnBlue("Current version (v%s)\n", su.version.String())
-			ux.PrintflnBlue("Updated version (v%s)", latest.Version.String())
-			fmt.Printf(printVersion(latest))
+				newRelease.Version.String())
+			ux.PrintflnBlue("Current version (v%s)", su.version.String())
+			ux.PrintflnWarning("Info for current version unknown.\n")
+
+			ux.PrintflnBlue("Updated version (v%s)", newRelease.Version.String())
+			fmt.Printf("%s\n", printVersion(newRelease))
 
 			su.Error = nil
 			break
 		}
 
-		if current.Version.Equals(latest.Version) {
+		if currentRelease.Version.Equals(newRelease.Version) {
 			ux.PrintflnOk("%s is up to date at v%s.",
 				su.name.String(),
 				su.version.String())
-			fmt.Printf(printVersion(current))
+			fmt.Printf("%s\n", printVersion(currentRelease))
 			break
 		}
 
-		if current.Version.LE(latest.Version) {
+		if currentRelease.Version.LE(newRelease.Version) {
 			ux.PrintflnOk("%s can be updated to v%s.",
 				su.name.String(),
 				su.version.String())
 
-			ux.PrintflnBlue("Current version (v%s)", current.Version.String())
-			fmt.Printf(printVersion(current))
-			ux.PrintflnBlue("Updated version (v%s)", latest.Version.String())
-			fmt.Printf(printVersion(latest))
+			ux.PrintflnBlue("Current version (v%s)", currentRelease.Version.String())
+			fmt.Printf("%s\n", printVersion(currentRelease))
+
+			ux.PrintflnBlue("Updated version (v%s)", newRelease.Version.String())
+			fmt.Printf("%s\n", printVersion(newRelease))
 			break
 		}
 
-		if current.Version.GT(latest.Version) {
+		if currentRelease.Version.GT(newRelease.Version) {
 			ux.PrintflnWarning("%s is more recent at v%s, (latest is %s).",
 				su.name.String(),
 				su.version.String(),
-				latest.Version.String(),
+				newRelease.Version.String(),
 				)
 
-			ux.PrintflnBlue("Current version (v%s)", current.Version.String())
-			fmt.Printf(printVersion(current))
-			ux.PrintflnBlue("Updated version (v%s)", latest.Version.String())
-			fmt.Printf(printVersion(latest))
+			ux.PrintflnBlue("Current version (v%s)", currentRelease.Version.String())
+			fmt.Printf("%s\n", printVersion(currentRelease))
+
+			ux.PrintflnBlue("Updated version (v%s)", newRelease.Version.String())
+			fmt.Printf("%s\n", printVersion(newRelease))
 			break
 		}
 	}

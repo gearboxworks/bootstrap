@@ -1,16 +1,20 @@
 package cmd
 
 import (
+	"context"
 	"github.com/gearboxworks/bootstrap/defaults"
+	"github.com/google/go-github/v30/github"
 	"github.com/newclarity/scribeHelpers/ux"
 	"github.com/spf13/cobra"
+	"github.com/tcnksm/go-gitconfig"
+	"os"
 )
 
 
-func Version(cmd *cobra.Command, args ...string) error {
+func Version(cmd *cobra.Command) error {
 	err := VersionShow()
 	SetHelp(cmd)
-	PrintHelp(cmd)
+	PrintHelp()
 	err = cmd.Help()
 	return err
 }
@@ -23,23 +27,17 @@ func VersionShow() error {
 }
 
 
-func VersionInfo(args ...string) error {
+func VersionInfo() error {
 	update := New(&Target)
 
 	for range onlyOnce {
-		if len(args) == 0 {
-			args = []string{CmdVersionLatest}
-		}
-
 		if update.Error != nil {
 			break
 		}
 
-		for _, v := range args {
-			update.Error = update.PrintVersion(GetSemVer(v))
-			if update.Error != nil {
-				break
-			}
+		update.Error = update.PrintVersion(update.version.String())
+		if update.Error != nil {
+			break
 		}
 	}
 
@@ -47,21 +45,23 @@ func VersionInfo(args ...string) error {
 }
 
 
-func VersionList(args ...string) error {
+func VersionList() error {
 	update := New(&Target)
 
 	for range onlyOnce {
-		if len(args) == 0 {
-			// @TODO = Obtain full list of versions.
-			args = []string{CmdVersionLatest}
+		token := os.Getenv("GITHUB_TOKEN")
+		if token == "" {
+			token, _ = gitconfig.GithubToken()
 		}
-
+		gh := github.NewClient(newHTTPClient(context.Background(), token))
+		var rels []*github.RepositoryRelease
+		rels, _, update.Error = gh.Repositories.ListReleases(context.Background(), update.owner.String(), update.name.String(), nil)
 		if update.Error != nil {
 			break
 		}
 
-		for _, v := range args {
-			update.Error = update.PrintVersion(GetSemVer(v))
+		for _, rel := range rels {
+			update.Error = update.PrintVersionSummary(*rel.TagName)
 			if update.Error != nil {
 				break
 			}
@@ -108,7 +108,17 @@ func VersionUpdate() error {
 			break
 		}
 
-		update.Error = update.Update()
+		update.Error = update.UpdateTo()
+		if update.Error != nil {
+			break
+		}
+
+		if !Target.AutoExec {
+			break
+		}
+
+		// AutoExec will execute the new binary with the same args as given.
+		update.Error = Run(Target.Cmd, Target.CmdArgs...)
 		if update.Error != nil {
 			break
 		}
@@ -118,149 +128,60 @@ func VersionUpdate() error {
 }
 
 
-func _GetUsage(c *cobra.Command) string {
-	var str string
+func VersionExamples() string {
+	var ret string
 
-	if c.Parent() == nil {
-		str += ux.SprintfCyan("%s ", c.Name())
-	} else {
-		str += ux.SprintfCyan("%s ", c.Parent().Name())
-		str += ux.SprintfGreen("%s ", c.Use)
-	}
+	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
+	ret += ux.SprintfBlue(" - List all available versions of the '%s' binary.\n", defaults.BinaryName)
+	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
+	ret += ux.SprintfBlue(" - Update to the latest version within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
+	ret += ux.SprintfBlue(" - Update to the latest version within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/latest\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
+	ret += ux.SprintfBlue(" - Update to version 1.1.3 within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/1.1.3\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
 
-	if c.HasAvailableSubCommands() {
-		str += ux.SprintfGreen("[command] ")
-		str += ux.SprintfCyan("<args> ")
-	}
+	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
+	ret += ux.SprintfBlue(" - Check the latest version of the '%s' binary.\n", defaults.BinaryName)
+	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
+	ret += ux.SprintfBlue(" - Check the latest version within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
+	ret += ux.SprintfBlue(" - Check the latest version within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/latest\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
+	ret += ux.SprintfBlue(" - Check version 1.1.3 within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/1.1.3\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
 
-	return str
+	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionList)
+	ret += ux.SprintfBlue(" - List all available versions of the '%s' binary.\n", defaults.BinaryName)
+	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionList)
+	ret += ux.SprintfBlue(" - List all available versions within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionList)
+
+	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
+	ret += ux.SprintfBlue(" - Show info on the current version of the '%s' binary.\n", defaults.BinaryName)
+	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
+	ret += ux.SprintfBlue(" - Show info on the latest version within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
+	ret += ux.SprintfBlue(" - Show info on the latest version within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/latest\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
+	ret += ux.SprintfBlue(" - Show info on version 1.1.3 within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/1.1.3\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
+
+	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionLatest)
+	ret += ux.SprintfBlue(" - Show the latest version of the '%s' binary.\n", defaults.BinaryName)
+	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionLatest)
+	ret += ux.SprintfBlue(" - Show the latest version within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionLatest)
+
+	ret += ux.SprintfWhite("\nSymlinking methods:\n")
+	ret += ux.SprintfBlue(" - Show the latest version of buildtool.\n")
+	ret += ux.SprintfMagenta("\tln -s %s ./buildtool\n", Runtime.Cmd)
+	ret += ux.SprintfMagenta("\t./buildtool %s %s\n", CmdVersion, CmdVersionInfo)
+	ret += ux.SprintfBlue(" - Update to the latest version of buildtool, (no args will automatically update).\n")
+	ret += ux.SprintfMagenta("\tln -s %s ./buildtool\n", Runtime.Cmd)
+	ret += ux.SprintfMagenta("\t./buildtool\n")
+
+	ret += ux.SprintfWhite("\n")
+
+	return ret
 }
-
-
-func _GetVersion(c *cobra.Command) string {
-	var str string
-
-	if c.Parent() == nil {
-		str = ux.SprintfBlue("%s ", defaults.BinaryName)
-		str += ux.SprintfCyan("v%s", defaults.BinaryVersion)
-	}
-
-	return str
-}
-
-
-func PrintHelp(c *cobra.Command) {
-	ux.PrintfCyan("bootstrap")
-	ux.PrintflnBlue(" is intended to automatically download the correct binary from a GitHub repository.\n")
-
-	if Runtime.CmdFile == defaults.BinaryName {
-
-	} else {
-		ux.PrintflnBlue("The '%s' executable is running this bootstrap code.", Runtime.CmdName)
-
-		ux.PrintflnBlue("To be able to use the real '%s' executable, replace this bootstrap binary using this command:", Runtime.CmdName)
-		ux.PrintflnCyan("%s version update", Runtime.CmdName)
-		ux.PrintflnBlue("\nThis will update and replace the current '%s' file with the correct executable.\n\n", Runtime.CmdName)
-	}
-}
-
-
-func SetHelp(c *cobra.Command) {
-	var tmplHelp string
-	var tmplUsage string
-
-	cobra.AddTemplateFunc("GetUsage", _GetUsage)
-	cobra.AddTemplateFunc("GetVersion", _GetVersion)
-
-	cobra.AddTemplateFunc("SprintfBlue", ux.SprintfBlue)
-	cobra.AddTemplateFunc("SprintfCyan", ux.SprintfCyan)
-	cobra.AddTemplateFunc("SprintfGreen", ux.SprintfGreen)
-	cobra.AddTemplateFunc("SprintfMagenta", ux.SprintfMagenta)
-	cobra.AddTemplateFunc("SprintfRed", ux.SprintfRed)
-	cobra.AddTemplateFunc("SprintfWhite", ux.SprintfWhite)
-	cobra.AddTemplateFunc("SprintfYellow", ux.SprintfYellow)
-
-	tmplUsage += `
-{{ SprintfBlue "Usage: " }}
-	{{ GetUsage . }}
-
-{{- if gt (len .Aliases) 0 }}
-{{ SprintfBlue "\nAliases:" }} {{ .NameAndAliases }}
-{{- end }}
-
-{{- if .HasExample }}
-{{ SprintfBlue "\nExamples:" }}
-	{{ .Example }}
-{{- end }}
-
-{{- if .HasAvailableSubCommands }}
-{{ SprintfBlue "\nWhere " }}{{ SprintfGreen "[command]" }}{{ SprintfBlue " is one of:" }}
-{{- range .Commands }}
-{{- if (or .IsAvailableCommand (eq .Name "help")) }}
-	{{ rpad (SprintfGreen .Name) .NamePadding}}	- {{ .Short }}{{ end }}
-{{- end }}
-{{- end }}
-
-{{- if .HasHelpSubCommands }}
-{{- SprintfBlue "\nAdditional help topics:" }}
-{{- range .Commands }}
-{{- if .IsAdditionalHelpTopicCommand }}
-	{{ rpad (SprintfGreen .CommandPath) .CommandPathPadding }} {{ .Short }}
-{{- end }}
-{{- end }}
-{{- end }}
-
-{{- if .HasAvailableSubCommands }}
-{{ SprintfBlue "\nUse" }} {{ SprintfCyan .CommandPath }} {{ SprintfCyan "help" }} {{ SprintfGreen "[command]" }} {{ SprintfBlue "for more information about a command." }}
-{{- end }}
-`
-
-	tmplHelp = `{{ GetVersion . }}
-
-{{ SprintfBlue "Commmand:" }} {{ SprintfCyan .Use }}
-
-{{ SprintfBlue "Description:" }} 
-	{{ with (or .Long .Short) }}
-{{- . | trimTrailingWhitespaces }}
-{{- end }}
-
-{{- if or .Runnable .HasSubCommands }}
-{{ .UsageString }}
-{{- end }}
-`
-
-	//c.SetHelpCommand(c)
-	//c.SetHelpFunc(PrintHelp)
-	c.SetHelpTemplate(tmplHelp)
-	c.SetUsageTemplate(tmplUsage)
-}
-
-
-//func ProcessArgs(toolArgs *TypeRuntime, cmd *cobra.Command, args []string) error {
-//	state := Runtime.State
-//
-//	for range onlyOnce {
-//		//err := toolArgs.Runtime.SetArgs(cmd.Use)
-//		//if err != nil {
-//		//	state.SetError(err)
-//		//	break
-//		//}
-//		//
-//		//err = toolArgs.Runtime.AddArgs(args...)
-//		//if err != nil {
-//		//	state.SetError(err)
-//		//	break
-//		//}
-//
-//		SetApp(Runtime.CmdName)
-//	}
-//
-//	return state
-//}
-
-
-// 	BinaryRepo = "github.com/gearboxworks/scribe"
-//	BinaryRepo = "github.com/gearboxworks/bootstrap"
-//	BinaryRepo = "github.com/gearboxworks/buildtool"
-//	BinaryRepo = "github.com/wplib/deploywp"
-//	BinaryRepo = "github.com/gearboxworks/launch"
