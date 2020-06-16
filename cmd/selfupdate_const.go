@@ -2,7 +2,10 @@ package cmd
 
 //noinspection ALL
 const (
+	CmdLinks			= "links"
+
 	CmdSelfUpdate		= "selfupdate"
+
 	CmdVersion 			= "version"
 	CmdVersionInfo		= "info"
 	CmdVersionList		= "list"

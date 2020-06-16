@@ -2,13 +2,85 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"github.com/gearboxworks/bootstrap/defaults"
 	"github.com/google/go-github/v30/github"
 	"github.com/newclarity/scribeHelpers/ux"
 	"github.com/spf13/cobra"
 	"github.com/tcnksm/go-gitconfig"
 	"os"
+	"path/filepath"
 )
+
+
+func Links() error {
+	update := New(&Target)
+
+	for range onlyOnce {
+		ux.PrintflnBlue("Creating all supported application links.")
+
+		bins := defaults.Available.GetBinaries()
+		update.Error = os.Chdir(Runtime.CmdDir)
+
+		links := make(map[string]string)
+		var failed bool
+		for _, binaryFile := range bins {
+			var err error
+			var linkStat os.FileInfo
+
+			linkStat, err = os.Lstat(binaryFile)
+			if linkStat == nil {
+				// Symlink doesn't exist - create.
+				err = os.Symlink(Runtime.CmdFile, binaryFile)
+				if err != nil {
+					continue
+				}
+
+				linkStat, err = os.Lstat(binaryFile)
+				if linkStat == nil {
+					continue
+				}
+
+				links[binaryFile] = "created"
+			}
+			//fmt.Printf("'%s' (%s) => '%s'\n", k, binaryFile, binaryFile)
+			//fmt.Printf("\tReadlink() => %s\n", l)
+			//fmt.Printf("\tLstat() => %s	%s	%s	%s	%d\n",
+			//	linkStat.Name(),
+			//	linkStat.IsDir(),
+			//	linkStat.Mode().String(),
+			//	linkStat.ModTime().String(),
+			//	linkStat.Size(),
+			//)
+
+			// Symlink exists - validate.
+			l, _ := os.Readlink(binaryFile)
+			if l == defaults.BinaryName {
+			}
+
+			fpel, err := filepath.EvalSymlinks(binaryFile)
+			//fmt.Printf("%s\n", fpel)
+			if fpel != Runtime.CmdFile {
+				links[binaryFile] = "incorrect link"
+				failed = true
+				continue
+			}
+
+			links[binaryFile] = "exists"
+		}
+
+		if failed {
+			update.Error = errors.New("failed to add all application links")
+			ux.PrintflnWarning("Failed to add all application links.")
+			break
+		}
+		for k, v := range links {
+			ux.PrintflnCyan("%s    \t- %s - from repo %s/%s", k, v, defaults.BinaryRepoPrefix, k)
+		}
+	}
+
+	return update.Error
+}
 
 
 func Version(cmd *cobra.Command) error {

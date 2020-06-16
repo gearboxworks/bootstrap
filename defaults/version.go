@@ -4,7 +4,7 @@ import "fmt"
 
 const (
 	BinaryName = "bootstrap"
-	BinaryVersion = "0.4.3"
+	BinaryVersion = "0.4.4"
 	// The version should always be the lowest possible out of all possible binaries.
 
 	RepoPrefix       = "github.com"
@@ -22,17 +22,18 @@ type Repo struct {
 }
 type Repos []Repo
 
-var available = Repos{
-	{Binary: "scribe",		Owner: "gearboxworks", Name: "scribe"},
-	{Binary: "bootstrap",	Owner: "gearboxworks", Name: "bootstrap"},
-	{Binary: "buildtool",	Owner: "gearboxworks", Name: "buildtool"},
-	{Binary: "launch",		Owner: "gearboxworks", Name: "launch"},
+var Available = Repos{
+	//{Binary: "bootstrap",	Owner: "gearboxworks",	Name: "bootstrap"},
+	{Binary: "scribe",		Owner: "gearboxworks",	Name: "scribe"},
+	{Binary: "buildtool",	Owner: "gearboxworks",	Name: "buildtool"},
+	{Binary: "launch",		Owner: "gearboxworks",	Name: "launch"},
+	{Binary: "deploywp",	Owner: "wplib",			Name: "deploywp"},
 }
 
 
-func (r *Repos) Get(binary string) string {
+func (r *Repos) GetRepo(binary string) string {
 	var ret string
-	for _, k := range available {
+	for _, k := range Available {
 		if k.Binary == binary {
 			ret = fmt.Sprintf("%v", k)
 			break
@@ -42,10 +43,19 @@ func (r *Repos) Get(binary string) string {
 }
 
 
-func (r *Repos) GetAll() []string {
+func (r *Repos) GetRepos() []string {
 	var ret []string
-	for _, k := range available {
+	for _, k := range Available {
 		ret = append(ret, fmt.Sprintf("%v", k))
+	}
+	return ret
+}
+
+
+func (r *Repos) GetBinaries() []string {
+	var ret []string
+	for _, k := range Available {
+		ret = append(ret, k.Binary)
 	}
 	return ret
 }

@@ -9,6 +9,8 @@ import (
 
 
 func init() {
+	rootCmd.AddCommand(linksCmd)
+
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(selfUpdateCmd)
 
@@ -20,6 +22,19 @@ func init() {
 	versionCmd.AddCommand(versionExamplesCmd)
 }
 
+
+var linksCmd = &cobra.Command{
+	Use:   CmdLinks,
+	Short: ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Create symlinks for all supported apps."),
+	Long:  ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Create symlinks for all supported apps."),
+	Run: func(cmd *cobra.Command, args []string) {
+		//Runtime.Error = Target.SetApp(&Runtime, args...)
+		//if Runtime.Error != nil {
+		//	return
+		//}
+		Runtime.Error = Links()
+	},
+}
 
 var versionCmd = &cobra.Command{
 	Use:   CmdVersion,
