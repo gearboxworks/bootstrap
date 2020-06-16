@@ -8,11 +8,11 @@ const (
 	// The version should always be the lowest possible out of all possible binaries.
 
 	RepoPrefix       = "github.com"
-	SourceRepoPrefix = RepoPrefix + "/gearboxworks"
-	BinaryRepoPrefix = RepoPrefix + "/gearboxworks"
+	SourceRepoPrefix = "github.com/gearboxworks"
+	BinaryRepoPrefix = "github.com/gearboxworks"
 
-	SourceRepo = SourceRepoPrefix + "/" + BinaryName
-	BinaryRepo = BinaryRepoPrefix + "/" + BinaryName
+	SourceRepo = "github.com/gearboxworks/bootstrap"
+	BinaryRepo = "github.com/gearboxworks/bootstrap"
 )
 
 type Repo struct {
