@@ -41,6 +41,8 @@ type TypeRuntime struct {
 
 	Error         error
 }
+
+
 type GoRuntime struct {
 	Os string
 	Arch string
