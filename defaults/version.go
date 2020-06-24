@@ -4,7 +4,7 @@ import "fmt"
 
 const (
 	BinaryName = "bootstrap"
-	BinaryVersion = "0.4.4"
+	BinaryVersion = "0.4.5"
 	// The version should always be the lowest possible out of all possible binaries.
 
 	RepoPrefix       = "github.com"
@@ -35,7 +35,7 @@ func (r *Repos) GetRepo(binary string) string {
 	var ret string
 	for _, k := range Available {
 		if k.Binary == binary {
-			ret = fmt.Sprintf("%v", k)
+			ret = fmt.Sprintf("%s", k.Url())
 			break
 		}
 	}
@@ -52,12 +52,21 @@ func (r *Repos) GetRepos() []string {
 }
 
 
-func (r *Repos) GetBinaries() []string {
-	var ret []string
-	for _, k := range Available {
-		ret = append(ret, k.Binary)
+func (r *Repos) GetBinaries() map[string]string {
+	ret := make(map[string]string)
+	for _, v := range Available {
+		ret[v.Binary] = v.Url()
 	}
 	return ret
+}
+
+
+func (r *Repo) Url() string {
+	return fmt.Sprintf("%s/%s/%s",
+		RepoPrefix,
+		r.Owner,
+		r.Name,
+	)
 }
 
 

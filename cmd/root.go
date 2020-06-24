@@ -69,7 +69,10 @@ func gbRootFunc(cmd *cobra.Command, args []string) {
 		}
 
 		if Runtime.IsSymLinked {
-			ux.PrintflnWarning("This binary will be auto-updated from the '%s' repo...", Target.CmdBinaryRepo)
+			if len(args) == 0 {
+				args = []string{Runtime.CmdFile}
+			}
+
 			// Assume a 'version update'
 			Runtime.Error = Target.SetApp(&Runtime, args...)
 			if Runtime.Error != nil {
@@ -77,6 +80,8 @@ func gbRootFunc(cmd *cobra.Command, args []string) {
 			}
 			Runtime.AutoExec = true
 			Target.AutoExec = true
+
+			ux.PrintflnWarning("This binary will be auto-updated from the '%s' repo...", Target.CmdBinaryRepo)
 			Runtime.Error = VersionUpdate()
 			break
 		}

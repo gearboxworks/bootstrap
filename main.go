@@ -26,3 +26,9 @@ func main() {
 	ux.Close()
 	os.Exit(exitCode)
 }
+
+/*
+@TODO Offer prompt when finding a file during link creation.
+
+*/
+

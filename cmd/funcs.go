@@ -72,7 +72,7 @@ func Links() error {
 		if failed {
 			update.Error = errors.New("failed to add all application links")
 			ux.PrintflnWarning("Failed to add all application links.")
-			break
+			//break
 		}
 		for k, v := range links {
 			ux.PrintflnCyan("%s    \t- %s - from repo %s/%s", k, v, defaults.BinaryRepoPrefix, k)

@@ -139,60 +139,124 @@ func (target *TypeRuntime) SetApp(runtime *TypeRuntime, args ...string) error {
 		repoPrefix := "github.com"
 		repoString := strings.Join(args, "/")
 		switch {
-		case strings.HasPrefix(repoString, "github.com"):
-			repoString = "https://" + repoString
-			fallthrough
-		case strings.HasPrefix(repoString, "http"):
-			// We have a URL
-			u, err := url.Parse(repoString)
-			if err != nil {
-				break
-			}
-			repoString = u.Path
+			case strings.HasPrefix(repoString, "github.com"):
+				repoString = "https://" + repoString
+				fallthrough
+			case strings.HasPrefix(repoString, "http"):
+				// We have a URL
+				u, err := url.Parse(repoString)
+				if err != nil {
+					break
+				}
+				repoString = u.Path
 
-		default:
-			// Leave repoString as is.
+			default:
+				// Leave repoString as is.
 		}
 
-		repoArgs := strings.Split(repoString, "/")
-		if len(repoArgs) == 0 {
+		repoString = strings.ReplaceAll(repoString, "//", "/")
+		u, err := url.Parse(repoString)
+		if err != nil {
 			break
 		}
+		repoString = u.Path
 
-		if len(repoArgs) >= 1 {
-			// Assume we have been given a repo prefix only.
-			target.CmdBinaryRepo = repoPrefix + "/" + repoArgs[0] + "/" + target.CmdName
-			target.CmdSourceRepo = repoPrefix + "/" + repoArgs[0] + "/" + target.CmdName
+		repoArgs := strings.Split(repoString, "/")
+		switch len(repoArgs) {
+			case 0:
+				target.Error = errors.New(fmt.Sprintf("Url empty"))
+			case 1:
+				// Assume we have been given a binary.
+				u := defaults.Available.GetRepo(repoArgs[0])
+				target.CmdName = repoArgs[0]
+				target.CmdFile = repoArgs[0]
+				target.CmdBinaryRepo = u
+				target.CmdSourceRepo = u
+				//target.Error = errors.New(fmt.Sprintf("Incorrect url given"))
+
+			case 2:
+				// Assume we have been given a repo prefix only.
+				target.CmdBinaryRepo = repoPrefix + "/" + repoArgs[1] + "/" + target.CmdName
+				target.CmdSourceRepo = repoPrefix + "/" + repoArgs[1] + "/" + target.CmdName
+
+			case 3:
+				// Assume we have also been given a repo name.
+				if repoArgs[2] != "" {
+					target.CmdName = repoArgs[2]
+					target.CmdFile = repoArgs[2]
+				}
+				target.Cmd = filepath.Join(target.CmdDir, target.CmdName)
+				target.CmdBinaryRepo = repoPrefix + "/" + repoArgs[1] + "/" + target.CmdName
+				target.CmdSourceRepo = repoPrefix + "/" + repoArgs[1] + "/" + target.CmdName
+
+			default:
+				// Assume we have also been given a repo version.
+				if repoArgs[2] != "" {
+					target.CmdName = repoArgs[2]
+					target.CmdFile = repoArgs[2]
+				}
+				target.Cmd = filepath.Join(target.CmdDir, target.CmdName)
+				target.CmdBinaryRepo = repoPrefix + "/" + repoArgs[1] + "/" + target.CmdName
+				target.CmdSourceRepo = repoPrefix + "/" + repoArgs[1] + "/" + target.CmdName
+
+  				target.WantVersion = dropVprefix(repoArgs[3])
+				if target.WantVersion == LatestVersion {
+					target.WantVersion = ""
+					break
+				}
+				if target.WantVersion == "" {
+					break
+				}
+
+				vCheck := toVersionValue(target.WantVersion)
+				if vCheck == nil {
+					target.Error = errors.New(fmt.Sprintf("Incorrect semver given: '%s'", repoArgs[3]))
+					break
+				}
 		}
 
-		if len(repoArgs) >= 2 {
-			// Assume we have also been given a repo name.
-			if repoArgs[1] != "" {
-				target.CmdName = repoArgs[1]
-				target.CmdFile = repoArgs[1]
-			}
-			target.Cmd = filepath.Join(target.CmdDir, target.CmdName)
-			target.CmdBinaryRepo = repoPrefix + "/" + repoArgs[0] + "/" + target.CmdName
-			target.CmdSourceRepo = repoPrefix + "/" + repoArgs[0] + "/" + target.CmdName
-		}
-
-		if len(repoArgs) >= 3 {
-			// Assume we have also been given a repo version.
-			target.WantVersion = dropVprefix(repoArgs[2])
-			if target.WantVersion == LatestVersion {
-				target.WantVersion = ""
-				break
-			}
-			if target.WantVersion == "" {
-				break
-			}
-
-			vCheck := toVersionValue(target.WantVersion)
-			if vCheck == nil {
-				target.Error = errors.New(fmt.Sprintf("Incorrect semver given: '%s'", repoArgs[2]))
-				break
-			}
-		}
+		//if len(repoArgs) == 0 {
+		//	break
+		//}
+		//
+		//if len(repoArgs) == 1 {
+		//	break
+		//}
+		//
+		//if len(repoArgs) >= 2 {
+		//	// Assume we have been given a repo prefix only.
+		//	target.CmdBinaryRepo = repoPrefix + "/" + repoArgs[1] + "/" + target.CmdName
+		//	target.CmdSourceRepo = repoPrefix + "/" + repoArgs[1] + "/" + target.CmdName
+		//}
+		//
+		//if len(repoArgs) >= 3 {
+		//	// Assume we have also been given a repo name.
+		//	if repoArgs[2] != "" {
+		//		target.CmdName = repoArgs[2]
+		//		target.CmdFile = repoArgs[2]
+		//	}
+		//	target.Cmd = filepath.Join(target.CmdDir, target.CmdName)
+		//	target.CmdBinaryRepo = repoPrefix + "/" + repoArgs[1] + "/" + target.CmdName
+		//	target.CmdSourceRepo = repoPrefix + "/" + repoArgs[1] + "/" + target.CmdName
+		//}
+		//
+		//if len(repoArgs) >= 4 {
+		//	// Assume we have also been given a repo version.
+		//	target.WantVersion = dropVprefix(repoArgs[3])
+		//	if target.WantVersion == LatestVersion {
+		//		target.WantVersion = ""
+		//		break
+		//	}
+		//	if target.WantVersion == "" {
+		//		break
+		//	}
+		//
+		//	vCheck := toVersionValue(target.WantVersion)
+		//	if vCheck == nil {
+		//		target.Error = errors.New(fmt.Sprintf("Incorrect semver given: '%s'", repoArgs[3]))
+		//		break
+		//	}
+		//}
 	}
 
 	return target.Error
@@ -238,7 +302,11 @@ func CreateDummyBinary(runtimeBin string, targetBin string) error {
 			break
 		}
 
-		runtimeBin = filepath.Join(filepath.Dir(targetBin), filepath.Base(link))
+		if filepath.IsAbs(link) {
+			runtimeBin = link
+		} else {
+			runtimeBin = filepath.Join(filepath.Dir(targetBin), filepath.Base(link))
+		}
 		ux.PrintflnOk("Removing symlink %s (%s)", targetBin, filepath.Base(link))
 		err = os.Remove(targetBin)
 		if err != nil {
