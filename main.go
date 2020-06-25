@@ -22,7 +22,9 @@ func main() {
 }
 
 /*
-@TODO Offer prompt when finding a file during link creation.
+@TODO - Offer prompt when finding a file during link creation.
+
+@TODO - Consider using https://github.com/vektra/gitreader (or variant), to store repo binaries in GitHub.
 
 */
 

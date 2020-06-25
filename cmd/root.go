@@ -82,7 +82,6 @@ func Execute() *ux.State {
 		// Assume a 'version update'
 		//if !SelfUpdate.IsBootstrapBinary() {
 			VersionUpdate(rootCmd, RunTime.FullArgs)
-			//break
 		//}
 	}
 

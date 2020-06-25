@@ -15,10 +15,11 @@ import (
 
 func CheckRunTime(self *toolSelfUpdate.TypeSelfUpdate, args ...string) *ux.State {
 	for range onlyOnce {
-		self.SetOldVersion(toolSelfUpdate.EarliestSemVer)
 		name := strings.Join(args, "")
 
 		if !self.IsBootstrapBinary() {
+			self.SetOldVersion(toolSelfUpdate.EarliestSemVer)
+
 			// Lookup binary name...
 			repoUrl := defaults.Available.GetRepo(self.Runtime.CmdFile)
 			if repoUrl != "" {
@@ -38,6 +39,8 @@ func CheckRunTime(self *toolSelfUpdate.TypeSelfUpdate, args ...string) *ux.State
 				}
 			}
 			break
+		} else {
+			self.SetOldVersion(SelfUpdate.Runtime.CmdVersion)
 		}
 
 		self.State = self.SetRepo(args...)
@@ -51,10 +54,6 @@ func CheckRunTime(self *toolSelfUpdate.TypeSelfUpdate, args ...string) *ux.State
 			}
 		}
 
-		//ux.PrintflnBlue("IsRunningAsFile: %v", self.Runtime.IsRunningAsFile())
-		//ux.PrintflnBlue("IsRunningAsLink: %v", self.Runtime.IsRunningAsLink())
-		//ux.PrintflnBlue("IsRunningAs: %v", self.Runtime.IsRunningAs(defaults.BinaryName))
-		//ux.PrintflnBlue("Repo: %v", self.GetRepo())
 		self.State.SetOk()
 	}
 
@@ -107,10 +106,9 @@ func VersionLinks(cmd *cobra.Command, args []string) {
 				}
 
 				links[binaryFile] = "created"
-				ux.PrintflnOk("%s    \t- %s - (repository %s)", filepath.Base(binaryFile), links[binaryFile], binaryUrl)
+				ux.PrintflnOk("%-16s - %-8s - (repository %s)", filepath.Base(binaryFile), links[binaryFile], binaryUrl)
 				continue
 			}
-			//fmt.Printf("'%s' (%s) => '%s'\n", k, binaryFile, binaryFile)
 
 			// Symlink exists - validate.
 			l, _ := os.Readlink(binaryFile)
@@ -122,24 +120,19 @@ func VersionLinks(cmd *cobra.Command, args []string) {
 			//fmt.Printf("%s\n", link)
 			if link != RunTime.Cmd {
 				links[binaryFile] = "incorrect link"
-				ux.PrintflnError("%s    \t- %s - (repository %s)", filepath.Base(binaryFile), links[binaryFile], binaryUrl)
+				ux.PrintflnError("%-16s - %-8s - (repository %s)", filepath.Base(binaryFile), links[binaryFile], binaryUrl)
 				failed = true
 				continue
 			}
 
 			links[binaryFile] = "exists"
-			ux.PrintflnOk("%s    \t- %s - (repository %s)", filepath.Base(binaryFile), links[binaryFile], binaryUrl)
-			fmt.Printf("")
+			ux.PrintflnWarning("%-16s - %-8s - (repository %s)", filepath.Base(binaryFile), links[binaryFile], binaryUrl)
 		}
 
 		if failed {
 			err = errors.New("Failed to install some applications")
 			ux.PrintflnWarning("%s", err)
 		}
-
-		//for k, v := range links {
-		//	ux.PrintflnCyan("%s    \t- %s - from repo %s/%s", k, v, defaults.BinaryRepoPrefix, k)
-		//}
 	}
 
 	if err != nil {
@@ -155,26 +148,11 @@ func VersionUpdate(cmd *cobra.Command, args []string) {
 			break
 		}
 
-		//SelfUpdate.State = SelfUpdate.CreateDummyBinary()
-		//if SelfUpdate.State.IsNotOk() {
-		//	break
-		//}
-
 		ux.PrintflnWarning("The binary '%s' will be installed from the '%s' repo...", SelfUpdate.GetName(), SelfUpdate.GetBinaryRepo())
 		SelfUpdate.State = SelfUpdate.VersionUpdate()
 		if SelfUpdate.State.IsNotOk() {
 			break
 		}
-
-		//if !SelfUpdate.AutoExec {
-		//	break
-		//}
-		//
-		//// AutoExec will execute the new binary with the same args as given.
-		//SelfUpdate.State = SelfUpdate.AutoRun()
-		//if SelfUpdate.State.IsNotOk() {
-		//	break
-		//}
 	}
 }
 

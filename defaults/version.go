@@ -4,7 +4,7 @@ import "fmt"
 
 const (
 	BinaryName = "bootstrap"
-	BinaryVersion = "0.4.4"
+	BinaryVersion = "0.4.6"
 	// The version should always be the lowest possible out of all possible binaries.
 
 	RepoPrefix       = "github.com"
@@ -28,8 +28,9 @@ var Available = Repos{
 	{Binary: "buildtool",	Owner: "gearboxworks",	Name: "buildtool"},
 	{Binary: "launch",		Owner: "gearboxworks",	Name: "launch"},
 	{Binary: "deploywp",	Owner: "wplib",			Name: "deploywp"},
+	{Binary: "squiz",		Owner: "newclarity",	Name: "website-indexer"},
 }
-
+// https://github.com/newclarity/website-indexer
 
 func (r *Repos) GetRepo(binary string) string {
 	var ret string
