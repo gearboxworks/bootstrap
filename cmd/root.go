@@ -11,29 +11,12 @@ import (
 
 
 const onlyOnce = "1"
-//var onlyTwice = []string{"", ""}
+var onlyTwice = []string{"", ""}
 var RunTime *toolRuntime.TypeRuntime
 var SelfUpdate *toolSelfUpdate.TypeSelfUpdate
-//var TargetUpdate *toolSelfUpdate.TypeSelfUpdate
 
 
 func init() {
-	SetCmd()
-
-	//rootCmd.PersistentFlags().StringVarP(&TargetUpdate.CmdName, "bin" ,"b", TargetUpdate.CmdName, ux.SprintfBlue("Name of target binary to download."))
-	//_ = rootCmd.PersistentFlags().MarkHidden("bin")
-	//rootCmd.PersistentFlags().StringVarP(&TargetUpdate.CmdBinaryRepo, "repo" ,"r", TargetUpdate.CmdBinaryRepo, ux.SprintfBlue("Url of target binary repo to download."))
-	//_ = rootCmd.PersistentFlags().MarkHidden("repo")
-	//rootCmd.PersistentFlags().StringVarP(&TargetUpdate.CmdVersion, "ver" ,"", TargetUpdate.CmdVersion, ux.SprintfBlue("Version of target binary to download."))
-	//_ = rootCmd.PersistentFlags().MarkHidden("ver")
-	//rootCmd.PersistentFlags().BoolVarP(&TargetUpdate.AutoExec, "auto" ,"", false, ux.SprintfBlue("Auto-update when symlinked."))
-	//_ = rootCmd.PersistentFlags().MarkHidden("ver")
-	//
-	//rootCmd.Flags().BoolP(FlagVersion, "v", false, ux.SprintfBlue("Display version of " + defaults.BinaryName))
-}
-
-
-func SetCmd() {
 	for range onlyOnce {
 		if RunTime == nil {
 			RunTime = toolRuntime.New(defaults.BinaryName, defaults.BinaryVersion, false)
@@ -49,14 +32,6 @@ func SetCmd() {
 
 			rootCmd.Flags().BoolP(FlagVersion, "v", false, ux.SprintfBlue("Display version of %s", SelfUpdate.Runtime.CmdName))
 		}
-
-		//if TargetUpdate == nil {
-		//	TargetUpdate = toolSelfUpdate.New(RunTime)
-		//	SelfUpdate.LoadCommands(rootCmd, true)
-		//	if SelfUpdate.State.IsNotOk() {
-		//		break
-		//	}
-		//}
 	}
 }
 
@@ -105,24 +80,10 @@ func Execute() *ux.State {
 		}
 
 		// Assume a 'version update'
-		if !SelfUpdate.IsBootstrapBinary() {
-			VersionUpdate(rootCmd, nil)
-
-			////if len(args) == 0 {
-			////	args = []string{RunTime.CmdFile}
-			////}
-			//
-			//// Assume a 'version update'
-			//SelfUpdate.State = CheckRunTime(SelfUpdate)
-			//if SelfUpdate.State.IsNotOk() {
-			//	break
-			//}
-			//
-			//SelfUpdate.AutoExec = true
-			//
-			//_ = SelfUpdate.VersionUpdate()
-			break
-		}
+		//if !SelfUpdate.IsBootstrapBinary() {
+			VersionUpdate(rootCmd, RunTime.FullArgs)
+			//break
+		//}
 	}
 
 	return SelfUpdate.State

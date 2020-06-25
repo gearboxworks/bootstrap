@@ -8,6 +8,7 @@ import (
 
 
 func init() {
+	rootCmd.AddCommand(helpCmd)
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(selfUpdateCmd)
 	rootCmd.AddCommand(linksCmd)
@@ -21,22 +22,29 @@ func init() {
 }
 
 
+var helpCmd = &cobra.Command{
+	Use:   CmdVersionExamples,
+	Short: ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Self-manage help examples."),
+	Long:  ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Self-manage help examples."),
+	Run: VersionExamples,
+}
 var versionCmd = &cobra.Command{
 	Use:   CmdVersion,
-	Short: ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Self-manage executable."),
-	Long:  ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Self-manage executable."),
+	Short: ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Self-manage executables."),
+	Long:  ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Self-manage executables."),
 	Run: Version,
 }
 var selfUpdateCmd = &cobra.Command{
 	Use:   CmdSelfUpdate,
-	Short: ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Update version of executable."),
-	Long:  ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Check and update the latest version."),
+	Short: ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Update version of this executable."),
+	Long:  ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Check for and update to the latest version."),
 	Run: VersionUpdate,
 }
 var linksCmd = &cobra.Command{
-	Use:   CmdLinks,
-	Short: ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Create symlinks for all supported apps."),
-	Long:  ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Create symlinks for all supported apps."),
+	Use:   CmdInstall,
+	Aliases: []string{CmdLinks},
+	Short: ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Install placeholder for all supported apps."),
+	Long:  ux.SprintfMagenta(defaults.BinaryName) + ux.SprintfBlue(" - Install placeholder for all supported apps."),
 	Run: VersionLinks,
 }
 

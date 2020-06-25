@@ -62,7 +62,7 @@ func (r *Repos) GetBinaries() map[string]string {
 
 
 func (r *Repo) Url() string {
-	return fmt.Sprintf("%s/%s/%s",
+	return fmt.Sprintf("https://%s/%s/%s",
 		RepoPrefix,
 		r.Owner,
 		r.Name,
