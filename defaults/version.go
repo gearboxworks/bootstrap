@@ -4,7 +4,7 @@ import "fmt"
 
 const (
 	BinaryName = "bootstrap"
-	BinaryVersion = "0.4.5"
+	BinaryVersion = "0.4.4"
 	// The version should always be the lowest possible out of all possible binaries.
 
 	RepoPrefix       = "github.com"

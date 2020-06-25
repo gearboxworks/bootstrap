@@ -15,16 +15,10 @@ func init() {
 
 
 func main() {
-	exitCode := 0
-
-	err := cmd.Execute()
-	if err != nil {
-		ux.PrintflnError("%s", err)
-		exitCode = 1
-	}
-
+	state := cmd.Execute()
+	state.PrintResponse()
 	ux.Close()
-	os.Exit(exitCode)
+	os.Exit(state.ExitCode)
 }
 
 /*

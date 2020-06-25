@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"github.com/gearboxworks/bootstrap/defaults"
+	"github.com/newclarity/scribeHelpers/toolRuntime"
+	"github.com/newclarity/scribeHelpers/toolSelfUpdate"
 	"github.com/newclarity/scribeHelpers/ux"
 	"github.com/spf13/cobra"
 	"strings"
@@ -10,42 +12,52 @@ import (
 
 const onlyOnce = "1"
 //var onlyTwice = []string{"", ""}
-var Runtime TypeRuntime
-var Target TypeRuntime
+var RunTime *toolRuntime.TypeRuntime
+var SelfUpdate *toolSelfUpdate.TypeSelfUpdate
+//var TargetUpdate *toolSelfUpdate.TypeSelfUpdate
 
 
 func init() {
-	Runtime = NewRuntime(defaults.BinaryName, defaults.BinaryVersion, defaults.SourceRepo, defaults.BinaryRepo, false)
-	Target = NewRuntime("", "", defaults.SourceRepoPrefix, defaults.BinaryRepoPrefix, false)
+	SetCmd()
 
-	//rootCmd.PersistentFlags().StringVarP(&Runtime.Json.Filename, loadTools.FlagJsonFile, "j", loadTools.DefaultJsonFile, ux.SprintfBlue("Alternative JSON file."))
-	//rootCmd.PersistentFlags().StringVarP(&Runtime.Template.Filename, loadTools.FlagTemplateFile, "t", loadTools.DefaultTemplateFile, ux.SprintfBlue("Alternative template file."))
-	//rootCmd.PersistentFlags().StringVarP(&Runtime.Output.Filename, loadTools.FlagOutputFile, "o", loadTools.DefaultOutFile, ux.SprintfBlue("Output file."))
-	//rootCmd.PersistentFlags().StringVarP(&Runtime.WorkingPath.Filename, loadTools.FlagWorkingPath, "p", loadTools.DefaultWorkingPath, ux.SprintfBlue("Set working path."))
+	//rootCmd.PersistentFlags().StringVarP(&TargetUpdate.CmdName, "bin" ,"b", TargetUpdate.CmdName, ux.SprintfBlue("Name of target binary to download."))
+	//_ = rootCmd.PersistentFlags().MarkHidden("bin")
+	//rootCmd.PersistentFlags().StringVarP(&TargetUpdate.CmdBinaryRepo, "repo" ,"r", TargetUpdate.CmdBinaryRepo, ux.SprintfBlue("Url of target binary repo to download."))
+	//_ = rootCmd.PersistentFlags().MarkHidden("repo")
+	//rootCmd.PersistentFlags().StringVarP(&TargetUpdate.CmdVersion, "ver" ,"", TargetUpdate.CmdVersion, ux.SprintfBlue("Version of target binary to download."))
+	//_ = rootCmd.PersistentFlags().MarkHidden("ver")
+	//rootCmd.PersistentFlags().BoolVarP(&TargetUpdate.AutoExec, "auto" ,"", false, ux.SprintfBlue("Auto-update when symlinked."))
+	//_ = rootCmd.PersistentFlags().MarkHidden("ver")
 	//
-	//rootCmd.PersistentFlags().BoolVarP(&Runtime.Chdir, loadTools.FlagChdir, "c", false, ux.SprintfBlue("Change to directory containing %s", loadTools.DefaultJsonFile))
-	//rootCmd.PersistentFlags().BoolVarP(&Runtime.RemoveTemplate, loadTools.FlagRemoveTemplate, "", false, ux.SprintfBlue("Remove template file afterwards."))
-	//rootCmd.PersistentFlags().BoolVarP(&Runtime.ForceOverwrite, loadTools.FlagForce, "f", false, ux.SprintfBlue("Force overwrite of output files."))
-	//rootCmd.PersistentFlags().BoolVarP(&Runtime.RemoveOutput, loadTools.FlagRemoveOutput, "", false, ux.SprintfBlue("Remove output file afterwards."))
-	//rootCmd.PersistentFlags().BoolVarP(&Runtime.QuietProgress, loadTools.FlagQuiet, "q", false, ux.SprintfBlue("Silence progress in shell scripts."))
-	//
-	//rootCmd.PersistentFlags().BoolVarP(&Runtime.Debug, loadTools.FlagDebug ,"d", false, ux.SprintfBlue("DEBUG mode."))
+	//rootCmd.Flags().BoolP(FlagVersion, "v", false, ux.SprintfBlue("Display version of " + defaults.BinaryName))
+}
 
-	rootCmd.PersistentFlags().StringVarP(&Target.CmdName, "bin" ,"b", Target.CmdName, ux.SprintfBlue("Name of target binary to download."))
-	_ = rootCmd.PersistentFlags().MarkHidden("bin")
-	rootCmd.PersistentFlags().StringVarP(&Target.CmdBinaryRepo, "repo" ,"r", Target.CmdBinaryRepo, ux.SprintfBlue("Url of target binary repo to download."))
-	_ = rootCmd.PersistentFlags().MarkHidden("repo")
-	rootCmd.PersistentFlags().StringVarP(&Target.CmdVersion, "ver" ,"", Target.CmdVersion, ux.SprintfBlue("Version of target binary to download."))
-	_ = rootCmd.PersistentFlags().MarkHidden("ver")
-	rootCmd.PersistentFlags().BoolVarP(&Target.AutoExec, "auto" ,"", false, ux.SprintfBlue("Auto-update when symlinked."))
-	_ = rootCmd.PersistentFlags().MarkHidden("ver")
 
-	//rootCmd.PersistentFlags().BoolVarP(&Runtime.HelpAll, loadTools.FlagHelpAll, "", false, ux.SprintfBlue("Show all help."))
-	//rootCmd.PersistentFlags().BoolVarP(&Runtime.HelpVariables, loadTools.FlagHelpVariables, "", false, ux.SprintfBlue("Help on template variables."))
-	//rootCmd.PersistentFlags().BoolVarP(&Runtime.HelpFunctions, loadTools.FlagHelpFunctions, "", false, ux.SprintfBlue("Help on template functions."))
-	//rootCmd.PersistentFlags().BoolVarP(&Runtime.HelpExamples, loadTools.FlagHelpExamples, "", false, ux.SprintfBlue("Help on template examples."))
+func SetCmd() {
+	for range onlyOnce {
+		if RunTime == nil {
+			RunTime = toolRuntime.New(defaults.BinaryName, defaults.BinaryVersion, false)
+			RunTime.SetRepos(defaults.SourceRepo, defaults.BinaryRepo)
+		}
 
-	rootCmd.Flags().BoolP(FlagVersion, "v", false, ux.SprintfBlue("Display version of " + defaults.BinaryName))
+		if SelfUpdate == nil {
+			SelfUpdate = toolSelfUpdate.New(RunTime)
+			//SelfUpdate.LoadCommands(rootCmd, false)
+			if SelfUpdate.State.IsNotOk() {
+				break
+			}
+
+			rootCmd.Flags().BoolP(FlagVersion, "v", false, ux.SprintfBlue("Display version of %s", SelfUpdate.Runtime.CmdName))
+		}
+
+		//if TargetUpdate == nil {
+		//	TargetUpdate = toolSelfUpdate.New(RunTime)
+		//	SelfUpdate.LoadCommands(rootCmd, true)
+		//	if SelfUpdate.State.IsNotOk() {
+		//		break
+		//	}
+		//}
+	}
 }
 
 
@@ -58,45 +70,27 @@ var rootCmd = &cobra.Command{
 }
 func gbRootFunc(cmd *cobra.Command, args []string) {
 	for range onlyOnce {
-		var ok bool
-		fl := cmd.Flags()
-
-		// Show version.
-		ok, _ = fl.GetBool(FlagVersion)
-		if ok {
-			Runtime.Error = VersionShow()
+		if SelfUpdate.FlagCheckVersion(cmd) {
+			SelfUpdate.State.SetOk()
 			break
 		}
 
-		if Runtime.IsSymLinked {
-			if len(args) == 0 {
-				args = []string{Runtime.CmdFile}
-			}
-
-			// Assume a 'version update'
-			Runtime.Error = Target.SetApp(&Runtime, args...)
-			if Runtime.Error != nil {
-				return
-			}
-			Runtime.AutoExec = true
-			Target.AutoExec = true
-
-			ux.PrintflnWarning("This binary will be auto-updated from the '%s' repo...", Target.CmdBinaryRepo)
-			Runtime.Error = VersionUpdate()
+		if !SelfUpdate.IsBootstrapBinary() {
+			VersionUpdate(cmd, nil)
 			break
 		}
 
 		// Show help if no commands specified.
 		if len(args) == 0 {
 			PrintHelp()
-			Runtime.Error = cmd.Help()
+			_ = cmd.Help()
 			break
 		}
 	}
 }
 
 
-func Execute() error {
+func Execute() *ux.State {
 	for range onlyOnce {
 		SetHelp(rootCmd)
 
@@ -106,26 +100,32 @@ func Execute() error {
 		}
 
 		if !strings.HasPrefix(err.Error(), "unknown command") {
-			//PrintHelp()
-			//Runtime.Error = rootCmd.Help()
+			SelfUpdate.State.SetError(err)
 			break
 		}
 
-		gbRootFunc(rootCmd, []string{})
+		// Assume a 'version update'
+		if !SelfUpdate.IsBootstrapBinary() {
+			VersionUpdate(rootCmd, nil)
 
-		//// Assume a 'version update'
-		//Runtime.AutoExec = true
-		//Target.AutoExec = true
-		//
-		//Runtime.Error = Target.SetApp(&Runtime)
-		//if Runtime.Error == nil {
-		//	Runtime.Error = VersionUpdate()
-		//}
-		//Runtime.Error = nil
-		//break
+			////if len(args) == 0 {
+			////	args = []string{RunTime.CmdFile}
+			////}
+			//
+			//// Assume a 'version update'
+			//SelfUpdate.State = CheckRunTime(SelfUpdate)
+			//if SelfUpdate.State.IsNotOk() {
+			//	break
+			//}
+			//
+			//SelfUpdate.AutoExec = true
+			//
+			//_ = SelfUpdate.VersionUpdate()
+			break
+		}
 	}
 
-	return Runtime.Error
+	return SelfUpdate.State
 }
 
 
@@ -164,14 +164,14 @@ func PrintHelp() {
 	ux.PrintfCyan("bootstrap")
 	ux.PrintflnBlue(" is intended to automatically download the correct binary from a GitHub repository.\n")
 
-	if Runtime.CmdFile == defaults.BinaryName {
+	if RunTime.CmdFile == defaults.BinaryName {
 
 	} else {
-		ux.PrintflnBlue("The '%s' executable is running this bootstrap code.", Runtime.CmdName)
+		ux.PrintflnBlue("The '%s' executable is running this bootstrap code.", RunTime.CmdName)
 
-		ux.PrintflnBlue("To be able to use the real '%s' executable, replace this bootstrap binary using this command:", Runtime.CmdName)
-		ux.PrintflnCyan("%s version update", Runtime.CmdName)
-		ux.PrintflnBlue("\nThis will update and replace the current '%s' file with the correct executable.\n\n", Runtime.CmdName)
+		ux.PrintflnBlue("To be able to use the real '%s' executable, replace this bootstrap binary using this command:", RunTime.CmdName)
+		ux.PrintflnCyan("%s version update", RunTime.CmdName)
+		ux.PrintflnBlue("\nThis will update and replace the current '%s' file with the correct executable.\n\n", RunTime.CmdName)
 	}
 }
 
@@ -182,7 +182,7 @@ func SetHelp(c *cobra.Command) {
 
 	cobra.AddTemplateFunc("GetUsage", _GetUsage)
 	cobra.AddTemplateFunc("GetVersion", _GetVersion)
-	cobra.AddTemplateFunc("VersionExamples", VersionExamples)
+	cobra.AddTemplateFunc("HelpExamples", HelpExamples)
 
 	cobra.AddTemplateFunc("SprintfBlue", ux.SprintfBlue)
 	cobra.AddTemplateFunc("SprintfCyan", ux.SprintfCyan)
@@ -255,4 +255,63 @@ func SetHelp(c *cobra.Command) {
 	//c.SetHelpFunc(PrintHelp)
 	c.SetHelpTemplate(tmplHelp)
 	c.SetUsageTemplate(tmplUsage)
+}
+
+
+func HelpExamples() string {
+	var ret string
+
+	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
+	ret += ux.SprintfBlue(" - List all available versions of the '%s' binary.\n", defaults.BinaryName)
+	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
+	ret += ux.SprintfBlue(" - Update to the latest version within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
+	ret += ux.SprintfBlue(" - Update to the latest version within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/latest\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
+	ret += ux.SprintfBlue(" - Update to version 1.1.3 within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/1.1.3\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
+
+	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
+	ret += ux.SprintfBlue(" - Check the latest version of the '%s' binary.\n", defaults.BinaryName)
+	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
+	ret += ux.SprintfBlue(" - Check the latest version within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
+	ret += ux.SprintfBlue(" - Check the latest version within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/latest\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
+	ret += ux.SprintfBlue(" - Check version 1.1.3 within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/1.1.3\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
+
+	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionList)
+	ret += ux.SprintfBlue(" - List all available versions of the '%s' binary.\n", defaults.BinaryName)
+	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionList)
+	ret += ux.SprintfBlue(" - List all available versions within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionList)
+
+	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
+	ret += ux.SprintfBlue(" - Show info on the current version of the '%s' binary.\n", defaults.BinaryName)
+	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
+	ret += ux.SprintfBlue(" - Show info on the latest version within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
+	ret += ux.SprintfBlue(" - Show info on the latest version within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/latest\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
+	ret += ux.SprintfBlue(" - Show info on version 1.1.3 within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/1.1.3\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
+
+	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionLatest)
+	ret += ux.SprintfBlue(" - Show the latest version of the '%s' binary.\n", defaults.BinaryName)
+	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionLatest)
+	ret += ux.SprintfBlue(" - Show the latest version within the buildtool repo.\n")
+	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionLatest)
+
+	ret += ux.SprintfWhite("\nSymlinking methods:\n")
+	ret += ux.SprintfBlue(" - Show the latest version of buildtool.\n")
+	ret += ux.SprintfMagenta("\tln -s %s ./buildtool\n", RunTime.Cmd)
+	ret += ux.SprintfMagenta("\t./buildtool %s %s\n", CmdVersion, CmdVersionInfo)
+	ret += ux.SprintfBlue(" - Update to the latest version of buildtool, (no args will automatically update).\n")
+	ret += ux.SprintfMagenta("\tln -s %s ./buildtool\n", RunTime.Cmd)
+	ret += ux.SprintfMagenta("\t./buildtool\n")
+
+	ret += ux.SprintfWhite("\n")
+
+	return ret
 }

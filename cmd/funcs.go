@@ -1,26 +1,221 @@
 package cmd
 
 import (
-	"context"
 	"errors"
+	"fmt"
 	"github.com/gearboxworks/bootstrap/defaults"
-	"github.com/google/go-github/v30/github"
+	"github.com/newclarity/scribeHelpers/toolSelfUpdate"
 	"github.com/newclarity/scribeHelpers/ux"
 	"github.com/spf13/cobra"
-	"github.com/tcnksm/go-gitconfig"
 	"os"
 	"path/filepath"
 )
 
 
-func Links() error {
-	update := New(&Target)
+func CheckArgs(self *toolSelfUpdate.TypeSelfUpdate, args ...string) *ux.State {
+	for range onlyOnce {
+		//ux.PrintflnBlue("Creating all supported application links.")
+
+		ux.PrintflnBlue("IsRunningAsFile: %v", self.Runtime.IsRunningAsFile())
+		ux.PrintflnBlue("IsRunningAsLink: %v", self.Runtime.IsRunningAsLink())
+		ux.PrintflnBlue("IsRunningAs: %v", self.Runtime.IsRunningAs(defaults.BinaryName))
+
+		if self.IsBootstrapBinary() {
+			// Exit as we are the bootstrap binary.
+			self.State.SetOk()
+			break
+		}
+
+		if self.Runtime.IsRunningAsLink() {
+			self.CreateDummyBinary()
+			if self.State.IsNotOk() {
+				break
+			}
+		}
+
+		// Lookup binary name...
+		repoUrl := defaults.Available.GetRepo(self.Runtime.CmdFile)
+		if repoUrl == "" {
+			self.State.SetError("Binary '%s' has no known repo.", self.Runtime.CmdFile)
+			break
+		}
+
+		self.SetBinaryRepo(repoUrl)
+		if self.State.IsNotOk() {
+			break
+		}
+	}
+
+	return self.State
+}
+
+
+func CheckRunTime(self *toolSelfUpdate.TypeSelfUpdate, args ...string) *ux.State {
+	for range onlyOnce {
+		if self.Runtime.Debug {
+			ux.PrintflnBlue("IsRunningAsFile: %v", self.Runtime.IsRunningAsFile())
+			ux.PrintflnBlue("IsRunningAsLink: %v", self.Runtime.IsRunningAsLink())
+			ux.PrintflnBlue("IsRunningAs: %v", self.Runtime.IsRunningAs(defaults.BinaryName))
+			ux.PrintflnBlue("IsBootstrapBinary: %v", self.IsBootstrapBinary())
+		}
+
+		if self.IsBootstrapBinary() {
+			// Exit as we are the bootstrap binary.
+			self.State.SetOk()
+			break
+		}
+
+		if self.Runtime.IsRunningAsLink() {
+			self.AutoExec = true
+			self.CreateDummyBinary()
+			if self.State.IsNotOk() {
+				break
+			}
+		}
+
+		// Lookup binary name...
+		repoUrl := defaults.Available.GetRepo(self.Runtime.CmdFile)
+		if repoUrl == "" {
+			self.State.SetError("Binary '%s' has no known repo.", self.Runtime.CmdFile)
+			break
+		}
+
+		self.SetSourceRepo(repoUrl)
+		if self.State.IsNotOk() {
+			break
+		}
+
+		self.SetBinaryRepo(repoUrl)
+		if self.State.IsNotOk() {
+			break
+		}
+	}
+
+	return self.State
+}
+
+
+//func (rt *TypeUpdate) Version(cmd *cobra.Command) error {
+//	err := rt.VersionShow()
+//	SetHelp(cmd)
+//	PrintHelp()
+//	err = cmd.Help()
+//	return err
+//}
+//
+//
+//func (rt *TypeUpdate) VersionShow() error {
+//	ux.PrintfBlue("%s ", defaults.BinaryName)
+//	ux.PrintflnCyan("v%s", defaults.BinaryVersion)
+//	return nil
+//}
+//
+//
+//func (rt *TypeUpdate) VersionInfo() error {
+//	var err error
+//	for range onlyOnce {
+//		err = rt.Update.PrintVersion(CurrentVersion)
+//		if err != nil {
+//			break
+//		}
+//	}
+//	return err
+//}
+//
+//
+//func (rt *TypeUpdate) VersionList() error {
+//	var err error
+//	for range onlyOnce {
+//		token := os.Getenv("GITHUB_TOKEN")
+//		if token == "" {
+//			token, _ = gitconfig.GithubToken()
+//		}
+//
+//		gh := github.NewClient(newHTTPClient(context.Background(), token))
+//		var rels []*github.RepositoryRelease
+//		rels, _, err = gh.Repositories.ListReleases(context.Background(), rt.Update.owner.String(), rt.Update.name.String(), nil)
+//		if err != nil {
+//			break
+//		}
+//
+//		for _, rel := range rels {
+//			err = rt.Update.PrintVersionSummary(*rel.TagName)
+//			if err != nil {
+//				break
+//			}
+//		}
+//	}
+//	return err
+//}
+//
+//
+//func (rt *TypeUpdate) VersionCheck() error {
+//	var err error
+//	for range onlyOnce {
+//		err = rt.Update.IsUpdated()
+//		if err != nil {
+//			break
+//		}
+//	}
+//	return err
+//}
+//
+//
+//func (rt *TypeUpdate) VersionUpdate() error {
+//	var err error
+//	for range onlyOnce {
+//		err = CreateDummyBinary(SelfUpdate.Cmd, SelfUpdate.Cmd)
+//		if err != nil {
+//			break
+//		}
+//
+//		err = rt.Update.IsUpdated()
+//		if err != nil {
+//			break
+//		}
+//
+//		err = rt.Update.UpdateTo()
+//		if err != nil {
+//			break
+//		}
+//
+//		if !SelfUpdate.AutoExec {
+//			break
+//		}
+//
+//		// AutoExec will execute the new binary with the same args as given.
+//		err = Run(SelfUpdate.Cmd, SelfUpdate.CmdArgs...)
+//		if err != nil {
+//			break
+//		}
+//	}
+//	return err
+//}
+
+
+func Version(cmd *cobra.Command, args []string) {
+	for range onlyOnce {
+		SelfUpdate.State = CheckRunTime(SelfUpdate, args...)
+		if SelfUpdate.State.IsNotOk() {
+			break
+		}
+
+		SelfUpdate.State = SelfUpdate.Version(cmd, args...)
+		if SelfUpdate.State.IsNotOk() {
+			return
+		}
+	}
+}
+
+
+func VersionLinks(cmd *cobra.Command, args []string) {
+	var err error
 
 	for range onlyOnce {
 		ux.PrintflnBlue("Creating all supported application links.")
 
 		bins := defaults.Available.GetBinaries()
-		update.Error = os.Chdir(Runtime.CmdDir)
+		err = os.Chdir(RunTime.CmdDir)
 
 		links := make(map[string]string)
 		var failed bool
@@ -31,7 +226,7 @@ func Links() error {
 			linkStat, err = os.Lstat(binaryFile)
 			if linkStat == nil {
 				// Symlink doesn't exist - create.
-				err = os.Symlink(Runtime.CmdFile, binaryFile)
+				err = os.Symlink(RunTime.CmdFile, binaryFile)
 				if err != nil {
 					continue
 				}
@@ -60,7 +255,7 @@ func Links() error {
 
 			fpel, err := filepath.EvalSymlinks(binaryFile)
 			//fmt.Printf("%s\n", fpel)
-			if fpel != Runtime.CmdFile {
+			if fpel != RunTime.CmdFile {
 				links[binaryFile] = "incorrect link"
 				failed = true
 				continue
@@ -70,7 +265,7 @@ func Links() error {
 		}
 
 		if failed {
-			update.Error = errors.New("failed to add all application links")
+			err = errors.New("failed to add all application links")
 			ux.PrintflnWarning("Failed to add all application links.")
 			//break
 		}
@@ -79,181 +274,102 @@ func Links() error {
 		}
 	}
 
-	return update.Error
-}
-
-
-func Version(cmd *cobra.Command) error {
-	err := VersionShow()
-	SetHelp(cmd)
-	PrintHelp()
-	err = cmd.Help()
-	return err
-}
-
-
-func VersionShow() error {
-	ux.PrintfBlue("%s ", defaults.BinaryName)
-	ux.PrintflnCyan("v%s", defaults.BinaryVersion)
-	return nil
-}
-
-
-func VersionInfo() error {
-	update := New(&Target)
-
-	for range onlyOnce {
-		if update.Error != nil {
-			break
-		}
-
-		update.Error = update.PrintVersion(update.version.String())
-		if update.Error != nil {
-			break
-		}
+	if err != nil {
+		SelfUpdate.State.SetError(err)
 	}
-
-	return update.Error
 }
 
 
-func VersionList() error {
-	update := New(&Target)
-
+func VersionUpdate(cmd *cobra.Command, args []string) {
 	for range onlyOnce {
-		token := os.Getenv("GITHUB_TOKEN")
-		if token == "" {
-			token, _ = gitconfig.GithubToken()
-		}
-		gh := github.NewClient(newHTTPClient(context.Background(), token))
-		var rels []*github.RepositoryRelease
-		rels, _, update.Error = gh.Repositories.ListReleases(context.Background(), update.owner.String(), update.name.String(), nil)
-		if update.Error != nil {
+		SelfUpdate.State = CheckRunTime(SelfUpdate, args...)
+		if SelfUpdate.State.IsNotOk() {
 			break
 		}
 
-		for _, rel := range rels {
-			update.Error = update.PrintVersionSummary(*rel.TagName)
-			if update.Error != nil {
-				break
-			}
-		}
-	}
-
-	return update.Error
-}
-
-
-func VersionCheck() error {
-	update := New(&Target)
-
-	for range onlyOnce {
-		if update.Error != nil {
+		ux.PrintflnWarning("The binary '%s' will be installed from the '%s' repo...", SelfUpdate.Runtime.CmdFile, SelfUpdate.GetBinaryRepo())
+		SelfUpdate.State = SelfUpdate.VersionUpdate()
+		if SelfUpdate.State.IsNotOk() {
 			break
 		}
 
-		update.Error = update.IsUpdated()
-		if update.Error != nil {
-			break
-		}
-	}
-
-	return update.Error
-}
-
-
-func VersionUpdate() error {
-	update := New(&Target)
-
-	for range onlyOnce {
-		if update.Error != nil {
-			break
-		}
-
-		update.Error = CreateDummyBinary(Runtime.Cmd, Target.Cmd)
-		if update.Error != nil {
-			break
-		}
-
-		update.Error = update.IsUpdated()
-		if update.Error != nil {
-			break
-		}
-
-		update.Error = update.UpdateTo()
-		if update.Error != nil {
-			break
-		}
-
-		if !Target.AutoExec {
+		if !SelfUpdate.AutoExec {
 			break
 		}
 
 		// AutoExec will execute the new binary with the same args as given.
-		update.Error = Run(Target.Cmd, Target.CmdArgs...)
-		if update.Error != nil {
+		SelfUpdate.State = SelfUpdate.AutoRun()
+		if SelfUpdate.State.IsNotOk() {
 			break
 		}
 	}
-
-	return update.Error
 }
 
 
-func VersionExamples() string {
-	var ret string
+func VersionCheck(cmd *cobra.Command, args []string) {
+	for range onlyOnce {
+		SelfUpdate.State = CheckRunTime(SelfUpdate, args...)
+		if SelfUpdate.State.IsNotOk() {
+			break
+		}
 
-	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
-	ret += ux.SprintfBlue(" - List all available versions of the '%s' binary.\n", defaults.BinaryName)
-	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
-	ret += ux.SprintfBlue(" - Update to the latest version within the buildtool repo.\n")
-	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
-	ret += ux.SprintfBlue(" - Update to the latest version within the buildtool repo.\n")
-	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/latest\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
-	ret += ux.SprintfBlue(" - Update to version 1.1.3 within the buildtool repo.\n")
-	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/1.1.3\n", defaults.BinaryName, CmdVersion, CmdVersionUpdate)
+		SelfUpdate.State = SelfUpdate.VersionCheck()
+		if SelfUpdate.State.IsNotOk() {
+			return
+		}
+	}
+}
 
-	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
-	ret += ux.SprintfBlue(" - Check the latest version of the '%s' binary.\n", defaults.BinaryName)
-	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
-	ret += ux.SprintfBlue(" - Check the latest version within the buildtool repo.\n")
-	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
-	ret += ux.SprintfBlue(" - Check the latest version within the buildtool repo.\n")
-	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/latest\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
-	ret += ux.SprintfBlue(" - Check version 1.1.3 within the buildtool repo.\n")
-	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/1.1.3\n", defaults.BinaryName, CmdVersion, CmdVersionCheck)
 
-	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionList)
-	ret += ux.SprintfBlue(" - List all available versions of the '%s' binary.\n", defaults.BinaryName)
-	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionList)
-	ret += ux.SprintfBlue(" - List all available versions within the buildtool repo.\n")
-	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionList)
+func VersionList(cmd *cobra.Command, args []string) {
+	for range onlyOnce {
+		SelfUpdate.State = CheckRunTime(SelfUpdate, args...)
+		if SelfUpdate.State.IsNotOk() {
+			break
+		}
 
-	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
-	ret += ux.SprintfBlue(" - Show info on the current version of the '%s' binary.\n", defaults.BinaryName)
-	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
-	ret += ux.SprintfBlue(" - Show info on the latest version within the buildtool repo.\n")
-	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
-	ret += ux.SprintfBlue(" - Show info on the latest version within the buildtool repo.\n")
-	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/latest\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
-	ret += ux.SprintfBlue(" - Show info on version 1.1.3 within the buildtool repo.\n")
-	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool/1.1.3\n", defaults.BinaryName, CmdVersion, CmdVersionInfo)
+		SelfUpdate.State = SelfUpdate.VersionList(args...)
+		if SelfUpdate.State.IsNotOk() {
+			return
+		}
+	}
+}
 
-	ret += ux.SprintfWhite("\nExamples for: %s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionLatest)
-	ret += ux.SprintfBlue(" - Show the latest version of the '%s' binary.\n", defaults.BinaryName)
-	ret += ux.SprintfMagenta("\t%s %s %s\n", defaults.BinaryName, CmdVersion, CmdVersionLatest)
-	ret += ux.SprintfBlue(" - Show the latest version within the buildtool repo.\n")
-	ret += ux.SprintfMagenta("\t%s %s %s gearboxworks/buildtool\n", defaults.BinaryName, CmdVersion, CmdVersionLatest)
 
-	ret += ux.SprintfWhite("\nSymlinking methods:\n")
-	ret += ux.SprintfBlue(" - Show the latest version of buildtool.\n")
-	ret += ux.SprintfMagenta("\tln -s %s ./buildtool\n", Runtime.Cmd)
-	ret += ux.SprintfMagenta("\t./buildtool %s %s\n", CmdVersion, CmdVersionInfo)
-	ret += ux.SprintfBlue(" - Update to the latest version of buildtool, (no args will automatically update).\n")
-	ret += ux.SprintfMagenta("\tln -s %s ./buildtool\n", Runtime.Cmd)
-	ret += ux.SprintfMagenta("\t./buildtool\n")
+func VersionInfo(cmd *cobra.Command, args []string) {
+	for range onlyOnce {
+		SelfUpdate.State = CheckRunTime(SelfUpdate, args...)
+		if SelfUpdate.State.IsNotOk() {
+			break
+		}
 
-	ret += ux.SprintfWhite("\n")
+		if len(args) == 0 {
+			args = []string{SelfUpdate.GetVersion()}
+		}
 
-	return ret
+		SelfUpdate.State = SelfUpdate.VersionInfo(args...)
+		if SelfUpdate.State.IsNotOk() {
+			return
+		}
+	}
+}
+
+
+func VersionLatest(cmd *cobra.Command, args []string) {
+	for range onlyOnce {
+		SelfUpdate.State = CheckRunTime(SelfUpdate, args...)
+		if SelfUpdate.State.IsNotOk() {
+			break
+		}
+
+		SelfUpdate.State = SelfUpdate.VersionInfo(LatestVersion)
+		if SelfUpdate.State.IsNotOk() {
+			return
+		}
+	}
+}
+
+
+func VersionExamples(cmd *cobra.Command, args []string) {
+	fmt.Print(HelpExamples())
 }
