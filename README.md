@@ -31,6 +31,12 @@ Where [command] is one of:
 
 ## Examples
 
+Create symlink placeholders for all supported binaries. Once you execute, it'll install.
+
+```
+bootstrap install
+```
+
 Rename or symlink the bootstrap binary and automatically fetch and replace the symlink with the binary from repo.
 
 ```
