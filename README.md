@@ -22,11 +22,10 @@ Usage:
 	bootstrap version [command] <args>
 
 Where [command] is one of:
-	check	- version - Show any version updates.
-	info	- version - Info on current version.
-	latest	- version - Info on latest version.
-	list	- version - Self-manage executable.
-	update	- version - Update version of executable.
+	example		- bootstrap - Self-manage help examples.
+	install		- bootstrap - Install placeholder for all supported apps.
+	selfupdate	- bootstrap - Update version of this executable.
+	version		- bootstrap - Self-manage executables.
 ```
 
 ## Examples
