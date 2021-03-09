@@ -4,8 +4,9 @@ bootstrap is intended to automatically download the correct binary from a GitHub
 
 ## Quick start
 1. Download the latest archive from [here](https://github.com/gearboxworks/bootstrap/releases/latest)
-2. Extract `bootstrap` executable and place `bootstrap` binary in a directory located in your PATH.
-3. Execute `bootstrap install` - This will create placeholder symlinks for the default available commands.
+2. [Untar](https://www.howtogeek.com/362203/what-is-a-tar.gz-file-and-how-do-i-open-it/) the download file.
+3. Place `bootstrap` executable binary in a directory located in your PATH.<br>_(e.g. `/usr/local/bin` on macOS and Linux)._
+4. Execute `bootstrap install` - This will create placeholder symlinks for the default available commands.
 
 
 ## Usage: bootstrap
