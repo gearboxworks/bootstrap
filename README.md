@@ -4,7 +4,7 @@ bootstrap is intended to automatically download the correct binary from a GitHub
 
 ## Quick start
 1. Download the latest archive from [here](https://github.com/gearboxworks/bootstrap/releases/latest)
-2. Extract `bootstrap` executable and place in a directory located in your PATH.
+2. Extract `bootstrap` executable and place `bootstrap` binary in a directory located in your PATH.
 3. Execute `bootstrap install` - This will create placeholder symlinks for the default available commands.
 
 
