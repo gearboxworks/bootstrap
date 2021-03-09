@@ -2,6 +2,13 @@
 
 bootstrap is intended to automatically download the correct binary from a GitHub repository.
 
+## Quick start
+1. Download the latest archive from [here](https://github.com/gearboxworks/bootstrap/releases/latest)
+2. Extract `bootstrap` executable and place in a directory located in your PATH.
+3. Execute `bootstrap install` - This will create placeholder symlinks for the default available commands.
+
+
+## Usage: bootstrap
 ```
 Usage:
 	bootstrap [command] <args>
@@ -15,8 +22,7 @@ Use bootstrap help [command] for more information about a command.
 ```
 
 
-## bootstrap version
-
+## Usage: bootstrap version
 ```
 Usage:
 	bootstrap version [command] <args>
@@ -28,21 +34,13 @@ Where [command] is one of:
 	version		- bootstrap - Self-manage executables.
 ```
 
-## Examples
 
+## Examples
 Create symlink placeholders for all supported binaries. Once you execute, it'll install.
 
 ```
 bootstrap install
 ```
-
-Rename or symlink the bootstrap binary and automatically fetch and replace the symlink with the binary from repo.
-
-```
-ln -s bootstrap launch
-./launch version update
-```
-
 
 Download latest buildtools binary from repo.
 
